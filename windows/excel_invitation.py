@@ -17,6 +17,7 @@ from core.conversion_utils import (
 class ExcelToInvitationWindow(BaseFuncWindow):
     def __init__(self, title="試算表轉召請文功能"):
         super().__init__(title)
+        self.setMinimumSize(600, 600)
 
     def setup_ui(self):
         super().setup_ui()
