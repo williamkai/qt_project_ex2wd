@@ -215,7 +215,7 @@ class ExcelToInvitationWindow(BaseFuncWindow):
                         for run in para.runs:
                             count += len(pattern.findall(run.text))
                     placeholder_counts[key] = count
-                    print(f"佔位符 '{key}' 出現次數: {count}")
+                    # print(f"佔位符 '{key}' 出現次數: {count}")
 
                 # 建立 assign_map，每個佔位符要填哪些值
                 assign_map = {}
@@ -230,7 +230,7 @@ class ExcelToInvitationWindow(BaseFuncWindow):
                         elif len(vals) > n:
                             vals = vals[:n-1] + [','.join(vals[n-1:])]
                         assign_map[key] = vals
-                    print(f"key='{key}' 的替換清單: {assign_map[key]}")
+                    # print(f"key='{key}' 的替換清單: {assign_map[key]}")
 
                 # 替換文字：逐個 run 處理，不破壞格式
                 pattern_all = re.compile(r"{{\s*([a-zA-Z])\s*}}")
@@ -259,7 +259,7 @@ class ExcelToInvitationWindow(BaseFuncWindow):
                                 font_size = Pt(12)
 
                             new_text = new_text.replace(match.group(0), replacement, 1)
-                            print(f"run 內替換：{{{{{key}}}}} → '{replacement}'，字體：{font_size.pt}pt")
+                            # print(f"run 內替換：{{{{{key}}}}} → '{replacement}'，字體：{font_size.pt}pt")
 
                         run.text = new_text
                         run.font.size = font_size  # <--- 動態字體大小
