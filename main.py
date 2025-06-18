@@ -5,6 +5,11 @@ from windows.invitation_transfer import InvitationTransferWindow
 from windows.receipt_transfer import ReceiptTransferWindow
 from windows.other_transfer import OtherTransferWindow
 
+
+#pip install xlrd==1.2.0 封裝要加入這個，因為廟裡的電腦環境不支援 所以我封裝要多這個模組
+# pip install xlrd==1.2.0 openpyxl html5lib lxml
+
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
