@@ -32,7 +32,7 @@ class BaseFuncWindow(QWidget):
             container.addWidget(label)
 
             button = QPushButton(button_text)
-            button.setFixedSize(200, 40)
+            button.setFixedSize(160, 30)
             button.clicked.connect(click_func)
             container.addWidget(button)
 
