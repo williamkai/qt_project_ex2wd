@@ -72,7 +72,7 @@ class InvitationTransferWindow(BaseFuncWindow):
 
         # 主要 UI 控件建立（照第一個功能邏輯）
         self.input_required = add_labeled_input("必須欄位：", "請輸入欄位，例如: b,c,e")
-        self.input_optional = add_labeled_input("拔薦合併欄：", "例如: f,g,h")
+        self.input_optional = add_labeled_input("選擇欄位：", "例如: f,g,h")
 
         self.font_size_1 = add_labeled_combobox("6字以內字體大小：", [4,6,8,10,12,14,16,18,20,22,25,28,30], 4)
         self.font_size_2 = add_labeled_combobox("7~15字字體大小：", [4,6,8,10,12,14,16,18,20,22,25,28,30], 3)
