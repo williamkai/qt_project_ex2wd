@@ -1,5 +1,6 @@
 import os
 from docx import Document
+from copy import deepcopy
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QApplication, QLabel, QComboBox,
@@ -73,9 +74,9 @@ class InvitationTransferWindow(BaseFuncWindow):
         self.input_required = add_labeled_input("必須欄位：", "請輸入欄位，例如: b,c,e")
         self.input_optional = add_labeled_input("拔薦合併欄：", "例如: f,g,h")
 
-        self.font_size_1 = add_labeled_combobox("6字以內字體大小：", [4,6,8,10,12,14,16,18,20,22,25,28,30], 2)
-        self.font_size_2 = add_labeled_combobox("7~15字字體大小：", [4,6,8,10,12,14,16,18,20,22,25,28,30], 2)
-        self.font_size_3 = add_labeled_combobox("16字以上字體大小：", [4,6,8,10,12,14,16,18,20], 1)
+        self.font_size_1 = add_labeled_combobox("6字以內字體大小：", [4,6,8,10,12,14,16,18,20,22,25,28,30], 4)
+        self.font_size_2 = add_labeled_combobox("7~15字字體大小：", [4,6,8,10,12,14,16,18,20,22,25,28,30], 3)
+        self.font_size_3 = add_labeled_combobox("16字以上字體大小：", [4,6,8,8.5,9,9.5,10,12,14,16,18,20], 4)
 
         self.limit_rows_combo = add_labeled_combobox(
             "筆數選擇：", ["15","30","45","90","200", "400", "600", "800", "1000", "2000", "4000", "全部"], 2
@@ -153,15 +154,17 @@ class InvitationTransferWindow(BaseFuncWindow):
                 raise ValueError("找不到 Word 表格")
 
             table = doc.tables[0]
+            clean_template_table = deepcopy(table)  # 🧼 乾淨模板
             placeholder_map, start_col = map_all_placeholders(table)
+            col_count = start_col + 1  #動態找幾個欄位
 
             all_data = []
             for idx, row in df.iterrows():
                 if self.is_closing:
                     cancelled = True
                     break
-                self.progress_bar.setValue(idx + 1)
-                QApplication.processEvents()
+                # self.progress_bar.setValue(idx + 1)
+                # QApplication.processEvents()
 
                 if not all(str(row[col_letter_map[c]]) for c in required_cols):
                     continue
@@ -175,7 +178,9 @@ class InvitationTransferWindow(BaseFuncWindow):
             current_table = table
             while batch_start < len(all_data):
                 remaining = len(all_data) - batch_start
-                fill_count = min(15, remaining)
+                fill_count = min(col_count, remaining)
+                # ➤ 嘗試填入這一批資料
+                current_batch = all_data[batch_start:batch_start + fill_count]
                 written = fill_data_to_table_v2(
                     current_table,
                     placeholder_map,
@@ -183,9 +188,21 @@ class InvitationTransferWindow(BaseFuncWindow):
                     start_col,
                     font_size_func=font_size_func
                 )
+                # ➤ 🛡️ 防止死循環（若沒寫入任何資料）
+                if written == 0:
+                    raise RuntimeError(
+                        f"填入資料失敗：\n\n"
+                        f"可能模板錯誤或欄位不匹配。\n"
+                        f"目前要填入的資料：\n{current_batch[:1]}"
+                    )
+
+                # ✅ 這裡更新進度條
+                self.progress_bar.setValue(batch_start)
+                QApplication.processEvents()
                 batch_start += written
                 if batch_start < len(all_data):
-                    current_table = duplicate_table_and_insert(doc, table)
+                    current_table = duplicate_table_and_insert(doc, clean_template_table)
+            
 
             out_path = os.path.join(self.output_folder, "牌位文疏批次生成.docx")
             doc.save(out_path)

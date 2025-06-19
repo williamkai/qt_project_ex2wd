@@ -3,15 +3,14 @@ import os
 import re
 import pandas as pd
 from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_LINE_SPACING
+from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.oxml.ns import qn
-import os
 from docx import Document
 from docx.enum.text import WD_BREAK
 from copy import deepcopy
-import pandas as pd
-import re
-from docx.shared import Pt
-from docx.oxml.ns import qn
+
 __all__ = [
     "read_data_auto",
     "col_letter_to_index",
@@ -149,9 +148,19 @@ def write_text_to_cell(cell, text, font_size=12):
     cell.text = str(text)
     para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
     run = para.runs[0] if para.runs else para.add_run()
+    # 字型設定
     run.font.size = Pt(font_size)
     run.font.name = '標楷體'
     run._element.rPr.rFonts.set(qn('w:eastAsia'), '標楷體')
+    # 段落設定
+    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+    para.paragraph_format.line_spacing = Pt(12)
+    para.paragraph_format.space_before = Pt(0)
+    para.paragraph_format.space_after = Pt(0)
+
+    cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+
 
 
 def fill_data_to_table_v2(table, placeholder_map, data_batch, start_col, font_size_func=None):
@@ -168,7 +177,11 @@ def fill_data_to_table_v2(table, placeholder_map, data_batch, start_col, font_si
         if template_col not in placeholder_map:
             continue
         for row, keys in placeholder_map[template_col]:
-            val = "\n".join(data.get(k, '') for k in keys)
+            # val = "\n".join(data.get(k, '') for k in keys)
+            val = "\n".join(
+                            data.get(k, '').strip().replace('　', '') for k in keys
+                        )
+
             font_size = font_size_func(val) if font_size_func else 12
             write_text_to_cell(table.cell(row, col), val, font_size=font_size)
     return len(data_batch)
