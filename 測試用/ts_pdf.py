@@ -15,6 +15,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import mm
 from pypdf import PdfReader, PdfWriter, PageObject
 from PIL import Image
+from collections import defaultdict
+
+from core.pdf_exporter import PDFExporter
 # 註冊中文字型
 pdfmetrics.registerFont(TTFont("Iansui", "/home/william/桌面/地藏王廟/qt_project_ex2wd/core/Iansui-Regular.ttf"))
 
@@ -413,60 +416,54 @@ class PDFEditorWindow(QWidget):
                 self.labels = [(lid, litem) for (lid, litem) in self.labels if litem != item]
                 self.scene.removeItem(item)
 
+    def compute_label_offset(self, index, h_count, v_count, image_width, image_height):
+        """讓 index=0 的標籤就在原位，其他往左下擴展"""
+        block_width = image_width / h_count
+        block_height = image_height / v_count
+
+        local_index = index % (h_count * v_count)
+        col = local_index % h_count   # 左到右（0～h_count-1）
+        row = local_index // h_count  # 上到下
+
+        offset_x = -block_width * col  # 注意：向左偏移
+        offset_y = block_height * row  # 向下偏移
+
+        return offset_x, offset_y
+
     def export_pdf(self):
         if not self.pdf_path or not self.labels:
             print("⚠️ 沒有載入 PDF 或沒有標籤")
             return
 
-        # 取得 PDF 尺寸
-        template = PdfReader(self.pdf_path)
-        base_page = template.pages[0]
-        pdf_width = float(base_page.mediabox.width)
-        pdf_height = float(base_page.mediabox.height)
-
-        # 用 PDF 尺寸產生 overlay canvas
-        packet = BytesIO()
-        c = canvas.Canvas(packet, pagesize=(pdf_width, pdf_height))
-
-        print("🧾 匯出標籤：")
-        for label_id, item in self.labels:
-            pos = item.pos()
-
-            # 文字尺寸
-            bounding_rect = item.boundingRect()
-            text_height = bounding_rect.height()
-
-            x_ratio = pdf_width / self.image_width
-            y_ratio = pdf_height / self.image_height
-
-            x_pdf = pos.x() * x_ratio
-            y_pdf = pdf_height - ((pos.y() + text_height) * y_ratio)  # ⬅ 加上高度，讓左下對齊
-
-            print(f" - {label_id} | pos: ({pos.x():.1f}, {pos.y():.1f}) | 高度補償: {text_height:.1f}")
-
-            c.setFont("Iansui", 14)
-            c.drawString(x_pdf, y_pdf, f"{{{label_id}}}")
-        c.save()
-        packet.seek(0)
-
-        # 合成 PDF 頁面
-        overlay_pdf = PdfReader(packet)
-        new_page = PageObject.create_blank_page(width=pdf_width, height=pdf_height)
-        new_page.merge_page(base_page)
-        new_page.merge_page(overlay_pdf.pages[0])
-
-        writer = PdfWriter()
-        writer.add_page(new_page)
+        # 產生 PDFExporter 並執行
+        exporter = PDFExporter(
+            pdf_path=self.pdf_path,
+            labels=self.labels,
+            image_width=self.image_width,
+            image_height=self.image_height,
+            h_count=int(self.combo_h_split.currentText()),
+            v_count=int(self.combo_v_split.currentText()),
+            font_path="/home/william/桌面/地藏王廟/qt_project_ex2wd/core/Iansui-Regular.ttf",
+            data=self.get_excel_data(),  # 或你要測試的 test_data
+            compute_offset_func=self.compute_label_offset,
+            direction_map={"A": "vertical", "B": "rtl"}  # 這個依你的資料而定
+        )
 
         output_path, _ = QFileDialog.getSaveFileName(self, "儲存 PDF", "output.pdf", "PDF Files (*.pdf)")
         if output_path:
-            with open(output_path, "wb") as f:
-                writer.write(f)
-            print(f"✅ 成功寫入 PDF：{output_path}")
-            print(f"圖片尺寸：{self.image_width} x {self.image_height}")
-            print(f"PDF尺寸：{pdf_width} x {pdf_height}")
+            exporter.export(output_path)
 
-
+    def get_excel_data(self):
+        return [
+            {"A": "地藏王", "B": "劉德華"},
+            {"A": "觀音佛", "B": "張學友"},
+            {"A": "普賢菩薩", "B": "郭富城"},
+            {"A": "文殊菩薩", "B": "黎明"},
+            {"A": "釋迦如來", "B": "周星馳"},
+            {"A": "藥師佛", "B": "吳宗憲"},
+            {"A": "阿彌陀佛", "B": "黃子佼"},
+        ]
+    
 if __name__ == '__main__':
     import sys
     app = QApplication(sys.argv)
