@@ -4,12 +4,14 @@ from PyQt6.QtCore import Qt
 from pdf2image import convert_from_path
 
 class PDFViewer:
-    def __init__(self, scene, combo_h_split, combo_v_split, graphics_view, zoom_factor=1.25):
+    def __init__(self,parent, scene, combo_h_split, combo_v_split, graphics_view, zoom_factor=1.25):
+        self.parent = parent
         self.scene = scene
         self.combo_h_split = combo_h_split
         self.combo_v_split = combo_v_split
         self.graphics_view = graphics_view
         self.zoom_factor = zoom_factor
+        self.pdf_path = None
 
         self.grid_lines = []
         self.block_numbers = []
@@ -66,7 +68,7 @@ class PDFViewer:
 
     def draw_grid_lines(self):
         if not self.pdf_path or not self.pdf_pixmap_item:
-            QMessageBox.warning(self, "錯誤", "請先載入 PDF 檔案才能畫格線")
+            QMessageBox.warning(self.parent, "錯誤", "請先載入 PDF 檔案才能畫格線")
             return
 
         try:
