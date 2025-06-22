@@ -210,7 +210,11 @@ class GoldPaperSealTransferWindow(QWidget):
             QMessageBox.warning(self, "警告", "⚠️ 請選擇 Excel 檔案。")
             return
 
-        data_list = self.get_excel_data()
+        data_list,error_msg = self.get_excel_data()
+
+        if  error_msg:
+            QMessageBox.warning(self, "警告", f"⚠️ Excel 資料錯誤：{error_msg}")
+            return
 
         label_map = defaultdict(list)
         for label_id, item in self.label_manager.labels:
@@ -278,9 +282,38 @@ class GoldPaperSealTransferWindow(QWidget):
             df = read_data_auto(self.excel_path)
             df = df.fillna('')
 
+            # 取得使用者設定
+            process_mode = self.combo_process_mode.currentText()
+            is_fixed = self.radio_mode_fixed.isChecked()
+
+            # 決定資料範圍
+            if is_fixed:
+                limit_text = self.combo_row_limit.currentText()
+                if limit_text == "全部":
+                    # 「全部」但跳過第 0 列（標題）
+                    df_filtered = df.iloc[1:]
+                else:
+                    limit = int(limit_text)
+                    df_filtered = df.iloc[1:1+limit]
+            else:
+                start = self.spin_row_start.value() # index 從 0 開始
+                end = self.spin_row_end.value()
+                # ✅ 防呆檢查：start 至少從 1 開始
+                if start <= 0 or end < start or end > len(df):
+                    return [], f"自訂範圍不合法：從 {start} 到 {end}，但資料總筆數為 {len(df)}"
+
+
+                df_filtered = df.iloc[start:end+1]
+
             # 建立欄位字母（A,B,C...）對應實際欄位名稱的字典
             # 這樣能確保對應準確且不受欄位順序影響
             col_letter_map = {chr(65+i): name for i, name in enumerate(df.columns)}
+            result_list = []
+            for _, row in df_filtered.iterrows():
+                result = {k: str(row[v]) for k, v in col_letter_map.items()}
+                result_list.append(result)
+
+                
             return [
             {"A": "地藏王", "B": "劉德華測試換行用"},
             {"A": "觀音佛", "B": "張學友"},
@@ -289,10 +322,10 @@ class GoldPaperSealTransferWindow(QWidget):
             {"A": "釋迦如來", "B": "周星馳"},
             {"A": "藥師佛", "B": "吳宗憲"},
             {"A": "阿彌陀佛", "B": "黃子佼"},
-            ]
+            ], ""
 
         except Exception as e:
-            raise ValueError(f"讀取 Excel 檔案失敗：{e}")
+            return [], f"讀取 Excel 發生錯誤：{e}"
         
         finally:
             print("讀取 Excel 檔案完成")

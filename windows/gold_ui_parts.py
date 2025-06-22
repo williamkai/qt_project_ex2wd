@@ -3,7 +3,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QComboBox, QHBoxLayout, QVBoxLayout,
     QFileDialog, QSizePolicy, QFrame, QSplitter, QLineEdit, QMessageBox,QScrollArea
-,QSpinBox,QGroupBox)
+,QSpinBox,QGroupBox,QRadioButton,QButtonGroup)
 from PyQt6.QtCore import Qt
 
 
@@ -139,6 +139,13 @@ def build_left_settings(window):
 
     # === 加入分割設定區塊 ===
     scroll_layout.addWidget(build_split_settings(window))
+
+    # === 加入 Excel 參數設定區塊 ===
+    scroll_layout.addWidget(build_excel_param_settings(window))
+
+    # === 加入 保存 參數設定區塊 ===
+    scroll_layout.addWidget(build_save_settings(window))
+
 
     # ✅ 加入標籤參數設定區塊
     scroll_layout.addWidget(build_label_param_settings(window))
@@ -323,3 +330,108 @@ def add_label_param_row(window):
     groupbox.combo_font = combo_font
     groupbox.combo_dir = combo_dir
     groupbox.word_limit = word_limit
+
+def build_excel_param_settings(window):
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setSpacing(10)
+
+    title = QLabel("📊 試算表參數設定")
+    title.setStyleSheet("font-weight: bold;")
+    layout.addWidget(title)
+
+    # 處理方式選擇（一般處理 vs 句選金紙封條）
+    process_mode_group = QGroupBox("處理邏輯")
+    process_layout = QHBoxLayout(process_mode_group)
+    window.combo_process_mode = QComboBox()
+    window.combo_process_mode.addItems(["一般處理", "金紙封條"])
+    window.combo_process_mode.setFixedWidth(160)
+    process_layout.addWidget(QLabel("處理模式："))
+    process_layout.addWidget(window.combo_process_mode)
+    layout.addWidget(process_mode_group)
+
+    # --- 資料筆數選擇模式：兩種方式二選一 ---
+    mode_group = QGroupBox("筆數選擇模式")
+    mode_layout = QVBoxLayout(mode_group)
+
+    radio_layout = QHBoxLayout()
+    window.radio_mode_fixed = QRadioButton("選擇前...筆數")
+    window.radio_mode_range = QRadioButton("自訂範圍")
+    window.radio_mode_fixed.setChecked(True)  # 預設選第一種
+    radio_layout.addWidget(window.radio_mode_fixed)
+    radio_layout.addWidget(window.radio_mode_range)
+    mode_layout.addLayout(radio_layout)
+
+    # ✅ QButtonGroup 統一管理（非必要，但推薦）
+    button_group = QButtonGroup(window)
+    button_group.addButton(window.radio_mode_fixed)
+    button_group.addButton(window.radio_mode_range)
+
+    # --- 固定筆數選擇區塊 ---
+    window.count_group = QWidget()
+    count_layout = QHBoxLayout(window.count_group)
+    window.combo_row_limit = QComboBox()
+    window.combo_row_limit.addItems(["200", "400", "600", "800", "1000", "2000", "4000", "全部"])
+    window.combo_row_limit.setCurrentIndex(0)
+    count_layout.addWidget(QLabel("處理筆數："))
+    count_layout.addWidget(window.combo_row_limit)
+
+    # --- 自訂範圍選擇區塊 ---
+    window.range_group = QWidget()
+    range_layout = QHBoxLayout(window.range_group)
+    window.spin_row_start = QSpinBox()
+    window.spin_row_start.setRange(1, 99999)
+    window.spin_row_start.setValue(1)
+    window.spin_row_start.setFixedWidth(80)
+
+    window.spin_row_end = QSpinBox()
+    window.spin_row_end.setRange(1, 99999)
+    window.spin_row_end.setValue(600)
+    window.spin_row_end.setFixedWidth(80)
+
+    range_layout.addWidget(QLabel("從第"))
+    range_layout.addWidget(window.spin_row_start)
+    range_layout.addWidget(QLabel("筆 到第"))
+    range_layout.addWidget(window.spin_row_end)
+    range_layout.addWidget(QLabel("筆"))
+
+    # 一開始只有固定筆數顯示
+    window.range_group.setVisible(False)
+
+    mode_layout.addWidget(window.count_group)
+    mode_layout.addWidget(window.range_group)
+
+    # 綁定切換邏輯
+    def update_mode():
+        is_fixed = window.radio_mode_fixed.isChecked()
+        window.count_group.setVisible(is_fixed)
+        window.range_group.setVisible(not is_fixed)
+
+    window.radio_mode_fixed.toggled.connect(update_mode)
+    window.radio_mode_range.toggled.connect(update_mode)
+
+    layout.addWidget(mode_group)
+    return container
+
+
+def build_save_settings(window):
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setSpacing(10)
+
+    title = QLabel("💾 儲存參數設定")
+    title.setStyleSheet("font-weight: bold;")
+    layout.addWidget(title)
+
+    # 儲存檔名（可選）
+    row = QHBoxLayout()
+    row.addWidget(QLabel("輸出檔名："))
+    window.output_filename_input = QLineEdit("output.pdf")
+    window.output_filename_input.setFixedWidth(200)
+    row.addWidget(window.output_filename_input)
+    layout.addLayout(row)
+
+    # 其他儲存選項（可以擴充）
+    # ...
+
+    return container
