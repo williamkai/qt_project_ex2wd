@@ -10,7 +10,7 @@ from PyQt6.QtCore import QPointF
 class PDFExporter:
     def __init__(self, pdf_path, labels, image_width, image_height,
                  h_count, v_count, font_path, data, compute_offset_func,
-                 direction_map=None):
+                 label_param_settings=None):
         self.pdf_path = pdf_path
         self.labels = labels
         self.image_width = image_width
@@ -20,22 +20,37 @@ class PDFExporter:
         self.font_path = font_path
         self.data = data
         self.compute_offset_func = compute_offset_func
-        self.direction_map = direction_map or {}
+        self.label_param_settings = label_param_settings or {}
 
         self.font_name = "Iansui"
         if os.path.exists(font_path):
             pdfmetrics.registerFont(TTFont(self.font_name, font_path))
 
-    def draw_text(self, c, text, x_pdf, y_pdf, font_size, direction):
-        if direction == "vertical":
-            for idx, ch in enumerate(text):
-                line_y_pdf = y_pdf - idx * font_size
-                c.drawString(x_pdf, line_y_pdf, ch)
-        elif direction == "rtl":  # 右到左
-            width = pdfmetrics.stringWidth(text, self.font_name, font_size)
-            c.drawRightString(x_pdf + width, y_pdf, text)
-        else:  # 默認水平左到右
-            c.drawString(x_pdf, y_pdf, text)
+    def draw_text(self, canvas, text, x, y, font_size, direction, wrap_limit):
+        # ✅ 先設定字型
+        canvas.setFont(self.font_name, font_size)
+        lines = [text[i:i+wrap_limit] for i in range(0, len(text), wrap_limit)]
+        total_lines = len(lines)
+
+        if direction == "垂直":
+            for line_idx, line in enumerate(lines):
+                offset_x = (total_lines - 1 - line_idx) * font_size
+                for char_idx, char in enumerate(line):
+                    canvas.drawString(
+                        x + offset_x, 
+                        y - char_idx * font_size,   # 垂直堆疊
+                        char
+                    )
+        elif direction == "水平":
+            for line_idx, line in enumerate(lines):
+                canvas.drawString(
+                    x,
+                    y - line_idx * font_size,       # 每行往下
+                    line
+                )
+        else:
+            # fallback: 不處理換行
+            canvas.drawString(x, y, text)
 
     def export(self, output_path):
         if not self.pdf_path or not self.labels:
@@ -86,9 +101,11 @@ class PDFExporter:
                         x_pdf = new_pos.x() * x_ratio
                         y_pdf = pdf_height - ((new_pos.y() + text_height) * y_ratio)
 
-                        direction = self.direction_map.get(label_id, "vertical")
-                        c.setFont(self.font_name, font_size)
-                        self.draw_text(c, label_text, x_pdf, y_pdf, font_size, direction)
+                        params = self.label_param_settings.get(label_id, {})
+                        font_size = params.get("font_size") or 22
+                        direction = params.get("direction", "水平")  # 預設垂直
+                        wrap_limit = params.get("wrap_limit", 10)
+                        self.draw_text(c, label_text, x_pdf, y_pdf, font_size, direction, wrap_limit)
 
             print(f"[Debug] 寫入 canvas，label 數量: {len(label_map)}")
 

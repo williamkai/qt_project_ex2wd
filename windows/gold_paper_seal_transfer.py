@@ -24,7 +24,8 @@ from .gold_ui_parts import (
 )
 from modules.pdf_viewer import PDFViewer
 from modules.label_manager import LabelManager
-
+from core.conversion_utils import (
+    read_data_auto,)
 from core.pdf_exporter import PDFExporter
 # 註冊中文字型
 pdfmetrics.registerFont(TTFont("Iansui", "/home/william/桌面/地藏王廟/qt_project_ex2wd/core/Iansui-Regular.ttf"))
@@ -36,7 +37,7 @@ class GoldPaperSealTransferWindow(QWidget):
         self.setWindowTitle(title)
         self.is_closing = False
         self.setWindowTitle("PDF 可視化標籤定位工具")
-        self.setMinimumSize(1000, 700)
+        self.setMinimumSize(1500, 700)
 
         # PDF 狀態與圖像資訊
         self.pdf_path = None
@@ -44,6 +45,7 @@ class GoldPaperSealTransferWindow(QWidget):
         self.image_width = None
         self.image_height = None
         self.pdf_pixmap_item = None
+        self.excel_path = None
 
         # 場景與視圖
         self.scene = QGraphicsScene()
@@ -195,6 +197,10 @@ class GoldPaperSealTransferWindow(QWidget):
         if not self.pdf_viewer.pdf_path or not self.label_manager.labels:
             QMessageBox.warning(self, "警告", "⚠️ 沒有載入 PDF 或沒有標籤")
             return
+        
+        if not self.excel_path:
+            QMessageBox.warning(self, "警告", "⚠️ 請選擇 Excel 檔案。")
+            return
 
         data_list = self.get_excel_data()
 
@@ -217,7 +223,7 @@ class GoldPaperSealTransferWindow(QWidget):
 
         self.btn_export.setEnabled(False)
         self.btn_export.setText("載入中...")
-
+        label_param_settings = self.collect_label_param_settings()
         try:
             exporter = PDFExporter(
                 pdf_path=self.pdf_viewer.pdf_path,
@@ -229,7 +235,7 @@ class GoldPaperSealTransferWindow(QWidget):
                 font_path="/home/william/桌面/地藏王廟/qt_project_ex2wd/core/Iansui-Regular.ttf",
                 data=data_list,
                 compute_offset_func=self.compute_label_offset,
-                direction_map={"A": "vertical", "B": "rtl"}
+                label_param_settings=label_param_settings,
             )
 
             output_path, _ = QFileDialog.getSaveFileName(self, "儲存 PDF", "output.pdf", "PDF Files (*.pdf)")
@@ -240,14 +246,46 @@ class GoldPaperSealTransferWindow(QWidget):
             self.btn_export.setEnabled(True)
             self.btn_export.setText("執行轉換")
  
+    def collect_label_param_settings(self) -> dict:
+        """
+        從 UI 中的標籤參數設定區塊，收集各標籤的自訂參數。
+        回傳格式: {'A': {'font_size': 20, 'direction': '水平', 'wrap_limit': 10}, ...}
+        """
+        label_param_settings = {}
+
+        for i in range(self.label_param_layout.count()):
+            gb = self.label_param_layout.itemAt(i).widget()
+            label_id = gb.combo_id.currentText()
+            label_param_settings[label_id] = {
+                "font_size": int(gb.combo_font.currentText()),
+                "direction": gb.combo_dir.currentText(),
+                "wrap_limit": int(gb.word_limit.currentText())
+            }
+
+        return label_param_settings
     def get_excel_data(self):
-        return [
-            {"A": "地藏王", "B": "劉德華"},
+        try:
+            # 自訂函式讀取 Excel，並將 NaN 用空字串代替
+            df = read_data_auto(self.excel_path)
+            df = df.fillna('')
+
+            # 建立欄位字母（A,B,C...）對應實際欄位名稱的字典
+            # 這樣能確保對應準確且不受欄位順序影響
+            col_letter_map = {chr(65+i): name for i, name in enumerate(df.columns)}
+            return [
+            {"A": "地藏王", "B": "劉德華測試換行用"},
             {"A": "觀音佛", "B": "張學友"},
             {"A": "普賢菩薩", "B": "郭富城"},
             {"A": "文殊菩薩", "B": "黎明"},
             {"A": "釋迦如來", "B": "周星馳"},
             {"A": "藥師佛", "B": "吳宗憲"},
             {"A": "阿彌陀佛", "B": "黃子佼"},
-        ]
-    
+            ]
+
+        except Exception as e:
+            raise ValueError(f"讀取 Excel 檔案失敗：{e}")
+        
+        finally:
+            print("讀取 Excel 檔案完成")
+
+        

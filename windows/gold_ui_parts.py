@@ -2,8 +2,8 @@
 
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QComboBox, QHBoxLayout, QVBoxLayout,
-    QFileDialog, QSizePolicy, QFrame, QSplitter, QLineEdit, QMessageBox
-)
+    QFileDialog, QSizePolicy, QFrame, QSplitter, QLineEdit, QMessageBox,QScrollArea
+,QSpinBox,QGroupBox)
 from PyQt6.QtCore import Qt
 
 
@@ -119,40 +119,82 @@ def build_horizontal_separator():
     separator.setStyleSheet("color: #ccc; height: 2px;")
     return separator
 
-
 def build_left_settings(window):
+    # 外層 Widget，回傳的就是這個
+    outer_widget = QWidget()
+    outer_layout = QVBoxLayout(outer_widget)
+
+    # 加入標題
+    outer_layout.addWidget(QLabel("設定區域"))
+
+    # 建立可捲動內容區域
+    scroll_area = QScrollArea()
+    scroll_area.setWidgetResizable(True)
+    scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+    # 實際可捲動的內容放在這
+    scroll_content = QWidget()
+    scroll_layout = QVBoxLayout(scroll_content)
+    scroll_layout.setSpacing(15)
+
+    # === 加入分割設定區塊 ===
+    scroll_layout.addWidget(build_split_settings(window))
+
+    # ✅ 加入標籤參數設定區塊
+    scroll_layout.addWidget(build_label_param_settings(window))
+
+    # 🧩 未來可以加：標籤參數區塊、資料參數設定、保存設定等等
+    # scroll_layout.addWidget(build_label_param_settings(window))
+    # scroll_layout.addWidget(build_data_param_settings(window))
+
+    scroll_layout.addStretch()
+    scroll_content.setLayout(scroll_layout)
+    scroll_area.setWidget(scroll_content)
+
+    outer_layout.addWidget(scroll_area)
+    return outer_widget
+
+def build_split_settings(window):
     widget = QWidget()
     layout = QVBoxLayout(widget)
-    layout.addWidget(QLabel("設定區域"))
 
-    title = QLabel("頁面分割設定")
+    title = QLabel("📄 頁面分割設定")
     title.setStyleSheet("font-weight: bold;")
     layout.addWidget(title)
 
     # 垂直切割
     h_split_layout = QHBoxLayout()
-    h_split_layout.addWidget(QLabel("垂直分割："))
+    label = QLabel("垂直分割：")
+    label.setFixedWidth(80) 
+    h_split_layout.addWidget(label)
     window.combo_h_split = QComboBox()
+    window.combo_h_split.setFixedWidth(50)
     window.combo_h_split.addItems([str(i) for i in range(1, 6)])
     window.combo_h_split.setCurrentIndex(0)
     h_split_layout.addWidget(window.combo_h_split)
+    h_split_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+    
     layout.addLayout(h_split_layout)
 
     # 水平切割
     v_split_layout = QHBoxLayout()
-    v_split_layout.addWidget(QLabel("水平分割："))
+    label = QLabel("水平分割：")
+    label.setFixedWidth(80) 
+    v_split_layout.addWidget(label)
     window.combo_v_split = QComboBox()
+    window.combo_v_split.setFixedWidth(50)
     window.combo_v_split.addItems([str(i) for i in range(1, 6)])
     window.combo_v_split.setCurrentIndex(0)
     v_split_layout.addWidget(window.combo_v_split)
+    v_split_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
     layout.addLayout(v_split_layout)
-
+    
     # 畫格線按鈕
     btn_draw = QPushButton("畫出格線")
+    btn_draw.setFixedWidth(100)
     btn_draw.clicked.connect(window.draw_grid_lines)
     layout.addWidget(btn_draw)
 
-    layout.addStretch()
     return widget
 
 
@@ -166,12 +208,13 @@ def build_pdf_preview(window):
 def build_splitter(window):
     splitter = QSplitter(Qt.Orientation.Horizontal)
     window.left_settings_widget = build_left_settings(window)
+    window.left_settings_widget.setMinimumWidth(200) 
     window.right_pdf_widget = build_pdf_preview(window)
 
     splitter.addWidget(window.left_settings_widget)
     splitter.addWidget(window.right_pdf_widget)
 
-    splitter.setSizes([50, 950])
+    splitter.setSizes([260, 740])
     splitter.setStyleSheet("""
         QSplitter::handle {
             background-color: #aaa;
@@ -180,3 +223,103 @@ def build_splitter(window):
         }
     """)
     return splitter
+
+
+def build_label_param_settings(window):
+    container = QWidget()
+    container_layout = QVBoxLayout(container)
+    container_layout.setSpacing(10)
+
+    # 🔖 第一行：標題 + ➕按鈕
+    row1_widget = QWidget()
+    label_param_settings_row1 = QHBoxLayout(row1_widget)  # 改成掛在 QWidget 上
+    title = QLabel("🔖標籤參數設定")
+    title.setStyleSheet("font-weight: bold;")
+    label_param_settings_row1.addWidget(title)
+
+    # ➕ 新增按鈕
+    btn_add = QPushButton("➕")
+    btn_add.setFixedWidth(50)
+    btn_add.clicked.connect(lambda: add_label_param_row(window))
+    label_param_settings_row1.addWidget(btn_add)
+    label_param_settings_row1.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+    # ✅ 現在可以加這個 row1_widget 了
+    container_layout.addWidget(row1_widget)
+
+    # 動態新增參數列的容器
+    window.label_param_container = QWidget()
+    window.label_param_layout = QVBoxLayout(window.label_param_container)
+    window.label_param_layout.setSpacing(5)
+    container_layout.addWidget(window.label_param_container)
+
+
+
+    return container
+
+
+def add_label_param_row(window):
+    # 用 QGroupBox 包起來（有標題的邊框容器）
+    groupbox = QGroupBox()
+    groupbox.setStyleSheet("QGroupBox { border: 1px solid gray; margin-top: 5px; padding: 5px; }")
+    groupbox.setFixedWidth(320)
+    layout = QVBoxLayout(groupbox)
+    layout.setContentsMargins(10, 10, 10, 10)
+    layout.setSpacing(8)
+
+    # 第一行：標籤 ID、字體大小
+    row1 = QHBoxLayout()
+    combo_id = QComboBox()
+    combo_id.addItems([chr(i) for i in range(ord('A'), ord('Z') + 1)])
+    combo_id.setFixedWidth(50)
+    row1.addWidget(QLabel("標籤："))
+    row1.addWidget(combo_id)
+
+    combo_font = QComboBox()
+    combo_font.addItems([str(i) for i in range(16, 81, 2)])
+    combo_font.setCurrentText("20")
+    combo_font.setFixedWidth(60)
+    row1.addWidget(QLabel("字體大小："))
+    row1.addWidget(combo_font)
+    row1.addStretch()
+    layout.addLayout(row1)
+
+    # 第二行：方向、換行限制
+    row2 = QHBoxLayout()
+    combo_dir = QComboBox()
+    combo_dir.addItems(["水平", "垂直"])
+    combo_dir.setFixedWidth(60)
+    row2.addWidget(QLabel("方向："))
+    row2.addWidget(combo_dir)
+
+    word_limit = QComboBox()
+    word_limit.addItems([str(i) for i in range(4, 20, 1)])
+    word_limit.setCurrentText("10")
+    word_limit.setFixedWidth(60)
+    row2.addWidget(QLabel("換行限制："))
+    row2.addWidget(word_limit)
+    row2.addStretch()
+    layout.addLayout(row2)
+
+    # 第三行：取消按鈕（放右側）
+    row3 = QHBoxLayout()
+    row3.addStretch()
+    btn_remove = QPushButton("取消")
+    btn_remove.setFixedWidth(80)
+    row3.addWidget(btn_remove)
+    row3.addStretch()
+    layout.addLayout(row3)
+
+    # 取消按鈕綁定：移除這個 groupbox
+    def on_remove():
+        window.label_param_layout.removeWidget(groupbox)
+        groupbox.deleteLater()
+    btn_remove.clicked.connect(on_remove)
+
+    # 加入到容器
+    window.label_param_layout.addWidget(groupbox)
+    # 🔽 加在這裡
+    groupbox.combo_id = combo_id
+    groupbox.combo_font = combo_font
+    groupbox.combo_dir = combo_dir
+    groupbox.word_limit = word_limit
