@@ -28,7 +28,15 @@ from core.conversion_utils import (
     read_data_auto,)
 from core.pdf_exporter import PDFExporter
 # 註冊中文字型
-pdfmetrics.registerFont(TTFont("Iansui", "/home/william/桌面/地藏王廟/qt_project_ex2wd/core/Iansui-Regular.ttf"))
+# 動態取得字體檔案的路徑（以目前這個檔案為基準）
+current_dir = os.path.dirname(os.path.abspath(__file__))
+font_path = os.path.join(current_dir, "..", "core", "Iansui-Regular.ttf")
+
+# 正常化路徑並註冊字型
+font_path = os.path.normpath(font_path)
+pdfmetrics.registerFont(TTFont("Iansui", font_path))
+
+# font_path = get_project_path("core", "Iansui-Regular.ttf")
 
 
 class GoldPaperSealTransferWindow(QWidget):
@@ -232,7 +240,7 @@ class GoldPaperSealTransferWindow(QWidget):
                 image_height=self.pdf_viewer.image_height,
                 h_count=int(self.combo_h_split.currentText()),
                 v_count=int(self.combo_v_split.currentText()),
-                font_path="/home/william/桌面/地藏王廟/qt_project_ex2wd/core/Iansui-Regular.ttf",
+                font_path=font_path,
                 data=data_list,
                 compute_offset_func=self.compute_label_offset,
                 label_param_settings=label_param_settings,
@@ -263,6 +271,7 @@ class GoldPaperSealTransferWindow(QWidget):
             }
 
         return label_param_settings
+    
     def get_excel_data(self):
         try:
             # 自訂函式讀取 Excel，並將 NaN 用空字串代替
