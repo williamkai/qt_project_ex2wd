@@ -72,7 +72,8 @@ class GoldPaperSealTransferWindow(QWidget):
                             zoom_factor=self.zoom_factor,
                         )
 
-        self.label_manager = LabelManager(self.scene)
+        self.label_manager = LabelManager(self.scene, self)
+
         # 在你的 MainWindow 初始化時
         self.scene.selectionChanged.connect(self.update_label_spinbox_position)
 
@@ -210,17 +211,19 @@ class GoldPaperSealTransferWindow(QWidget):
         for item in selected_items:
             item.setPos(base_x, item.pos().y())
 
-
     def update_label_spinbox_position(self):
         selected_items = self.scene.selectedItems()
+        print(f"[DEBUG] 被選取：{len(selected_items)} 個")
         if len(selected_items) == 1:
             pos = selected_items[0].pos()
+            print(f"[DEBUG] 座標更新：{pos.x()}, {pos.y()}")
             self.spin_label_x.blockSignals(True)
             self.spin_label_y.blockSignals(True)
             self.spin_label_x.setValue(pos.x())
             self.spin_label_y.setValue(pos.y())
             self.spin_label_x.blockSignals(False)
             self.spin_label_y.blockSignals(False)
+
 
     def update_selected_label_position(self):
         selected_items = self.scene.selectedItems()

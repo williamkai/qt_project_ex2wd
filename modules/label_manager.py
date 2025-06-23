@@ -1,19 +1,22 @@
 from PyQt6.QtWidgets import QGraphicsTextItem
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QPointF, Qt
-
+from .movable_labelItem import MovableLabelItem
 class LabelManager:
-    def __init__(self, scene):
+    def __init__(self, scene, main_window):
         self.scene = scene
         self.labels = []
+        self.main_window = main_window
 
     def add_text_label(self, label_id, font_size=20):
         preview_text = f"標籤:{label_id}"
-        label = QGraphicsTextItem(preview_text)
+        # label = QGraphicsTextItem(preview_text)
+        label = MovableLabelItem(preview_text)
+        label.set_main_window(self.main_window)  # 傳入主視窗
         label.setFont(QFont("Arial", font_size))
         label.setDefaultTextColor(Qt.GlobalColor.red)
-        label.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIsMovable)
-        label.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIsSelectable)
+        # label.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIsMovable)
+        # label.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIsSelectable)
         label.setData(0, label_id)
         label.setPos(QPointF(50, 50))
         self.scene.addItem(label)
