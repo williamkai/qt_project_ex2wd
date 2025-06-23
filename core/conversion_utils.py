@@ -120,7 +120,6 @@ def save_doc_with_name(doc, folder, filename):
     output_path = os.path.join(folder, filename)
     doc.save(output_path)
     return output_path
-##############################################################
 
 def extract_placeholders_from_cell(cell):
     pattern = re.compile(r"{{\s*([a-zA-Z]+)\s*}}")

@@ -1,4 +1,4 @@
-import os
+import os,platform
 from io import BytesIO
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QFileDialog,
@@ -30,6 +30,7 @@ from core.pdf_exporter import PDFExporter
 from core.kai_thread_pool import ExportWorker
 from PyQt6.QtCore import  QThreadPool
 
+
 # 註冊中文字型
 # 動態取得字體檔案的路徑（以目前這個檔案為基準）
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -39,8 +40,6 @@ font_path = os.path.join(current_dir, "..", "core", "Iansui-Regular.ttf")
 font_path = os.path.normpath(font_path)
 pdfmetrics.registerFont(TTFont("Iansui", font_path))
 
-
-
 class GoldPaperSealTransferWindow(QWidget):
     def __init__(self, title="Excel 轉 PDF 可視化工具"):
         super().__init__()
@@ -48,6 +47,9 @@ class GoldPaperSealTransferWindow(QWidget):
         self.is_closing = False
         self.setWindowTitle("Excel 轉 PDF 可視化工具")
         self.setMinimumSize(1200, 500)
+        #新增poppler路徑
+        self.poppler_path = self.get_poppler_path()
+        
 
         # PDF 狀態與圖像資訊
         self.pdf_path = None
@@ -79,6 +81,13 @@ class GoldPaperSealTransferWindow(QWidget):
         # 在你的 MainWindow 初始化時
         self.scene.selectionChanged.connect(self.update_label_spinbox_position)
 
+    def get_poppler_path(self) -> str | None:
+        if platform.system() == "Windows":
+            return os.path.normpath(
+                os.path.join(os.path.dirname(__file__), "..", "poppler", "Library", "bin")
+            )
+        else:
+            return None
 
     def setup_ui(self):
 
@@ -152,8 +161,14 @@ class GoldPaperSealTransferWindow(QWidget):
         if not self.pdf_path:
             print("⚠️ PDF 路徑尚未設定，無法載入預覽")
             return
-
-        images = convert_from_path(self.pdf_path, first_page=1, last_page=1, fmt="png")
+        
+        images = convert_from_path(
+                    self.pdf_path,
+                    first_page=1,
+                    last_page=1,
+                    fmt="png",
+                    poppler_path=self.poppler_path
+                )
         if images:
             image = images[0]
             self.current_image = image

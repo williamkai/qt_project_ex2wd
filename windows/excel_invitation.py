@@ -1,20 +1,12 @@
-import os
-from docx import Document
 from PyQt6.QtCore import Qt ,QThreadPool
 from PyQt6.QtWidgets import (
-    QWidget, QPushButton, QApplication, QLabel, QComboBox,
+    QWidget, QPushButton,  QLabel, QComboBox,
     QLineEdit, QHBoxLayout,  QMessageBox,QProgressBar
 )
 from core.base_windows import BaseFuncWindow
-from core.conversion_utils import (
-    read_data_auto,
-    col_letter_to_index,
-    prepare_assign_map,
-    replace_placeholders,
-    save_doc_with_name,
-)
-from core.kai_thread_pool import WordExportWorker  # 假設你放這邊
+from core.conversion_utils import read_data_auto
 
+from core.kai_thread_pool import WordExportWorker  # 假設你放這邊
 
 class ExcelToInvitationWindow(BaseFuncWindow):
     def __init__(self, title="試算表轉召請文功能"):
@@ -153,52 +145,6 @@ class ExcelToInvitationWindow(BaseFuncWindow):
         valid_rows = [row for idx, row in df.iterrows() if all(str(row[col_letter_map[c]]) for c in required_cols)]
         return len(valid_rows)
 
-    # 修改 run_conversion 為：
-    # def run_conversion(self):
-    #     self.btn_run.setEnabled(False)
-    #     self.btn_run.setText("轉換中...")
-    #     self.progress_bar.setValue(0)
-
-    #     try:
-    #         # 驗證必要參數
-    #         if not self.excel_path or not self.word_path or not self.output_folder:
-    #             raise ValueError("請確認 Excel、Word 模板與輸出資料夾皆已選擇")
-
-    #         required_text = self.input_required.text().strip()
-    #         optional_text = self.input_optional.text().strip()
-    #         if not required_text:
-    #             raise ValueError("請輸入必須欄位。")
-
-    #         required_cols = [c.strip().upper() for c in required_text.split(",") if c.strip()]
-    #         optional_cols = [c.strip().upper() for c in optional_text.split(",") if c.strip()] if optional_text else []
-
-    #         limit_text = self.limit_rows_combo.currentText()
-    #         limit_rows = None if limit_text == "全部" else int(limit_text)
-
-    #         font_size_rules = [
-    #             (8, int(self.font_size_1.currentText())),
-    #             (20, int(self.font_size_2.currentText())),
-    #             (9999, int(self.font_size_3.currentText())),
-    #         ]
-
-    #         worker = WordExportWorker(
-    #             excel_path=self.excel_path,
-    #             word_path=self.word_path,
-    #             output_folder=self.output_folder,
-    #             required_cols=required_cols,
-    #             optional_cols=optional_cols,
-    #             font_size_rules=font_size_rules,
-    #             limit_rows=limit_rows,
-    #         )
-    #         worker.signals.progress.connect(self.progress_bar.setValue)
-    #         worker.signals.finished.connect(self.export_done)
-
-    #         self.thread_pool.start(worker)
-
-    #     except ValueError as e:
-    #         QMessageBox.warning(self, "輸入錯誤", str(e))
-    #         self.btn_run.setEnabled(True)
-    #         self.btn_run.setText("轉換")
 
     def export_done(self, success, message):
         self.btn_run.setEnabled(True)
@@ -207,127 +153,4 @@ class ExcelToInvitationWindow(BaseFuncWindow):
             QMessageBox.information(self, "完成", message)
         else:
             QMessageBox.critical(self, "錯誤", message)
-
-    # def run_conversion(self):
-    #     """
-    #     讀取 Excel 檔案，依指定欄位產生 Word 文件。
-    #     透過 col_letter_map 統一欄位字母對應欄位名稱，避免錯誤。
-    #     """
-
-    #     self.btn_run = self.sender()  # 取得觸發此函式的按鈕物件
-    #     self.btn_run.setEnabled(False)  # 轉換中禁用按鈕避免重複觸發
-    #     self.btn_run.setText("轉換中...")  # 顯示轉換狀態文字
-    #     cancelled = False  # 是否使用者中途取消
-
-    #     try:
-    #         # 檢查必要參數是否都有設定
-    #         if not self.excel_path:
-    #             raise ValueError("請選擇 Excel 檔案。")
-    #         if not self.word_path:
-    #             raise ValueError("請選擇 Word 模板檔案。")
-    #         if not self.output_folder:
-    #             raise ValueError("請選擇輸出資料夾。")
-
-    #         # 取得使用者輸入的必填欄位（以英文單一字母逗號分隔）
-    #         required_text = self.input_required.text().strip()
-    #         if not required_text:
-    #             raise ValueError("請輸入必須欄位。")
-
-    #         # 驗證必填欄位格式（必須為單一英文字母）
-    #         if not all(col.strip().isalpha() and len(col.strip()) == 1 for col in required_text.split(",")):
-    #             raise ValueError("必須欄位必須為英文單一字母，以逗號分隔。")
-
-    #         required_cols = [c.strip().upper() for c in required_text.split(",") if c.strip()]
-
-    #         # 取得選填欄位，格式同必填欄位，若無輸入則空列表
-    #         optional_text = self.input_optional.text().strip()
-    #         optional_cols = [c.strip().upper() for c in optional_text.split(",") if c.strip()] if optional_text else []
-
-    #         try:
-    #             # 自訂函式讀取 Excel，並將 NaN 用空字串代替
-    #             df = read_data_auto(self.excel_path)
-    #             df = df.fillna('')
-
-    #             # 建立欄位字母（A,B,C...）對應實際欄位名稱的字典
-    #             # 這樣能確保對應準確且不受欄位順序影響
-    #             col_letter_map = {chr(65+i): name for i, name in enumerate(df.columns)}
-
-    #             # 處理筆數限制，若用戶選擇非「全部」時取前 n 筆
-    #             limit_text = self.limit_rows_combo.currentText()
-    #             if limit_text != "全部":
-    #                 try:
-    #                     limit = int(limit_text)
-    #                     df = df.head(limit)
-    #                 except ValueError:
-    #                     raise ValueError("筆數限制不是有效數字")
-                    
-    #             total_rows = len(df)
-    #             self.progress_bar.setMaximum(total_rows)
-
-    #             # 檢查所有必填及選填欄位字母是否存在於 col_letter_map
-    #             for col in required_cols + optional_cols:
-    #                 if col not in col_letter_map:
-    #                     raise ValueError(f"欄位 {col} 不存在於讀取的資料中。")
-
-    #             # 字體大小規則設定（可依照介面數值調整）
-    #             font_size_rules = [
-    #                 (8, int(self.font_size_1.currentText())),
-    #                 (20, int(self.font_size_2.currentText())),
-    #                 (9999, int(self.font_size_3.currentText())),
-    #             ]
-
-    #             # 開始逐筆處理 DataFrame 中的每一列
-    #             for idx, row in df.iterrows():
-    #                 # 檢查是否使用者已關閉視窗，中斷處理
-    #                 if self.is_closing:
-    #                     cancelled = True
-    #                     break
-
-    #                 self.progress_bar.setValue(idx + 1)
-    #                 QApplication.processEvents()  # 更新 UI，避免卡死
-
-    #                 # 檢查必填欄位是否皆有值，若有空值跳過該列
-    #                 if not all(str(row[col_letter_map[c]]) for c in required_cols):
-    #                     continue
-
-    #                 # 使用 Word 模板建立文件物件
-    #                 doc = Document(self.word_path)
-
-    #                 # 產生取代字典：欄位字母 => 欄位值（字串）
-    #                 replacements = {
-    #                     c: str(row[col_letter_map[c]])
-    #                     for c in required_cols + optional_cols
-    #                 }
-
-    #                 # 呼叫你自訂的函式替換 Word 中的對應標記，並套用字體大小規則
-    #                 assign_map = prepare_assign_map(replacements, doc)
-    #                 replace_placeholders(doc, assign_map, font_size_rules)
-
-    #                 # 以第一個必填欄位值前 11 個字作為檔名主體
-    #                 c_val = str(row[col_letter_map[required_cols[0]]])[:11]
-    #                 filename = f"{c_val}_召請文.docx"
-    #                 folder_name = os.path.join(self.output_folder, "Excel 轉 Word 召請文")
-
-    #                 # 儲存文件到指定路徑
-    #                 save_doc_with_name(doc, folder_name, filename)
-
-    #             if cancelled:
-    #                 self.progress_bar.setValue(0)
-    #             else:
-    #                 QMessageBox.information(self, "成功", "轉換完成！")
-    #                 self.progress_bar.setValue(total_rows)
-
-    #         except Exception as e:
-    #             # 捕捉過程中任何錯誤，顯示錯誤訊息並重置進度條
-    #             QMessageBox.critical(self, "錯誤", f"轉換失敗：{str(e)}")
-    #             self.progress_bar.setValue(0)
-
-    #     except ValueError as ve:
-    #         QMessageBox.warning(self, "輸入錯誤", str(ve))
-    #         return
-        
-    #     finally:
-    #         # 無論成功失敗，最後都要恢復按鈕狀態
-    #         self.btn_run.setEnabled(True)
-    #         self.btn_run.setText("轉換")
 

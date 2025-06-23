@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# virtualenv
+venv/
+.env/
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# OS 產生的暫存檔
+.DS_Store
+Thumbs.db
+
+# 打包產生物
+dist/
+build/
+*.spec
+
+# PDF / Word / 測試輸出檔案
+*.pdf
+*.docx
+測試用/
+output/
+
+# 如果你有 poppler 可執行檔資料夾（可選）
+poppler/

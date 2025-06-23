@@ -1,7 +1,9 @@
+import os,platform
 from PyQt6.QtWidgets import QGraphicsScene, QMessageBox,QGraphicsSimpleTextItem
 from PyQt6.QtGui import QPen, QBrush, QFont, QImage,QPixmap
 from PyQt6.QtCore import Qt
 from pdf2image import convert_from_path
+
 
 class PDFViewer:
     def __init__(self,parent, scene, combo_h_split, combo_v_split, graphics_view, zoom_factor=1.25):
@@ -12,6 +14,11 @@ class PDFViewer:
         self.graphics_view = graphics_view
         self.zoom_factor = zoom_factor
         self.pdf_path = None
+        #新增poppler路徑
+        self.poppler_path = self.get_poppler_path()
+        # self.poppler_path = os.path.normpath(
+        #     os.path.join(os.path.dirname(__file__), "..", "poppler", "Library", "bin")
+        # )
 
         self.grid_lines = []
         self.block_numbers = []
@@ -20,6 +27,14 @@ class PDFViewer:
         self.image_width = None
         self.image_height = None
 
+    def get_poppler_path(self) -> str | None:
+        if platform.system() == "Windows":
+            return os.path.normpath(
+                os.path.join(os.path.dirname(__file__), "..", "poppler", "Library", "bin")
+            )
+        else:
+            return None
+        
     def reset_scene(self):
         for line in self.grid_lines:
             self.scene.removeItem(line)
@@ -43,7 +58,13 @@ class PDFViewer:
             print("⚠️ PDF 路徑尚未設定，無法載入預覽")
             return False
 
-        images = convert_from_path(pdf_path, first_page=1, last_page=1, fmt="png")
+        images = convert_from_path(
+                    self.pdf_path,
+                    first_page=1,
+                    last_page=1,
+                    fmt="png",
+                    poppler_path=self.poppler_path
+                )
         if images:
             image = images[0]
             self.current_image = image
