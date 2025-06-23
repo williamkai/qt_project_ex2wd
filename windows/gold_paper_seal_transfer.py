@@ -343,7 +343,16 @@ class GoldPaperSealTransferWindow(QWidget):
             for _, row in df_filtered.iterrows():
                 result = {k: str(row[v]) for k, v in col_letter_map.items()}
                 result_list.append(result)
-            
+
+            print(f"✅ 讀取 Excel 資料完成，總筆數：{len(result_list)}\n開始行：{start},結束行：{end}")
+
+            print("\n".join(str(row) for row in result_list[:5]))
+            # 如果是金紙封條模式，就展開處理
+            if process_mode == "金紙封條":
+                result_list = self.expand_goldpaper_records(result_list)
+                print(f"金紙封條處理完成，總筆數：{len(result_list)}\n")
+                print("\n".join(str(row) for row in result_list[:5]))
+
             return result_list, ""
 
 
@@ -363,5 +372,78 @@ class GoldPaperSealTransferWindow(QWidget):
         
         finally:
             print("讀取 Excel 檔案完成")
+
+    def expand_goldpaper_records(self, data_list):
+        """
+        拆分含金紙N份或地基主資料為 N 筆，每筆為 1份或1項，統一寫到欄位 F，其餘 G~K 清空。
+        """
+        expanded = []
+        gold_keys = list("FGHIJK")  # 欄位順序
+        for row in data_list:
+            b_val = row["B"]
+            base_row = {k: row[k] for k in row if k not in gold_keys}  # 保留 A~E 等欄位
+            count = 0
+            for key in gold_keys:
+                content = row.get(key, "").strip()
+                if not content:
+                    break  # 後續欄位若空，代表結束
+                if "金紙" in content:
+                    try:
+                        n = int(content.split("金紙")[1].split("份")[0].strip())
+                    except:
+                        n = 1
+                    for i in range(n):
+                        new_row = base_row.copy()
+                        new_row["B"] = b_val if i == 0 and count == 0 else f"{b_val}-{count + i + 1}"
+                        new_row.update({k: "" for k in gold_keys})
+                        new_row["F"] = content.replace(f"金紙{n}份", "金紙1份")
+                        expanded.append(new_row)
+                    count += n
+                else:
+                    # 無金紙，直接移到 F 欄位
+                    new_row = base_row.copy()
+                    new_row["B"] = b_val if count == 0 else f"{b_val}-{count + 1}"
+                    new_row.update({k: "" for k in gold_keys})
+                    new_row["F"] = content
+                    expanded.append(new_row)
+                    count += 1
+        return expanded
+        # """
+        # 拆分含金紙N份的資料為 N 筆，每筆為 1份，B欄後綴 -2, -3... 表示編號
+        # """
+        # expanded = []
+        # gold_keys = list("FGHIJK")  # 欄位順序
+        # for row in data_list:
+        #     b_val = row["B"]
+        #     base_row = {k: row[k] for k in row if k not in gold_keys}  # 除了 FGHIJK 以外的欄位
+
+        #     count = 0
+        #     for key in gold_keys:
+        #         content = row.get(key, "").strip()
+        #         if not content:
+        #             break  # 若遇到空欄位，視為後面也都沒資料
+        #         if "金紙" in content:
+        #             # 嘗試解析「金紙6份」
+        #             try:
+        #                 n = int(content.split("金紙")[1].split("份")[0].strip())
+        #             except:
+        #                 n = 1  # 若解析失敗，預設1份
+        #             for i in range(n):
+        #                 new_row = base_row.copy()
+        #                 new_row["B"] = b_val if i == 0 and count == 0 else f"{b_val}-{count + i + 1}"
+        #                 # 將該金紙欄位設為「金紙1份」，其他設空
+        #                 new_row.update({k: "" for k in gold_keys})
+        #                 new_row[key] = content.replace(f"金紙{n}份", "金紙1份")
+        #                 expanded.append(new_row)
+        #             count += n
+        #         else:
+        #             # 沒有金紙，視為一般內容，直接加入
+        #             new_row = base_row.copy()
+        #             new_row["B"] = b_val if count == 0 else f"{b_val}-{count + 1}"
+        #             new_row.update({k: "" for k in gold_keys})
+        #             new_row[key] = content
+        #             expanded.append(new_row)
+        #             count += 1
+        # return expanded
 
         

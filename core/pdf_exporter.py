@@ -1,4 +1,4 @@
-import os
+import os,re
 from io import BytesIO
 from collections import defaultdict
 from reportlab.pdfgen import canvas
@@ -29,12 +29,20 @@ class PDFExporter:
     def draw_text(self, canvas, text, x, y, font_size, direction, wrap_limit):
         # ✅ 先設定字型
         canvas.setFont(self.font_name, font_size)
-        lines = [text[i:i+wrap_limit] for i in range(0, len(text), wrap_limit)]
+        # 🔸 自訂關鍵詞（可放在類別屬性 or 傳入參數）
+        keywords = ["金紙", "營業所", "店"]
+
+        # 🔸 斷行處理：先關鍵詞，再字數
+        lines = self.split_text_by_keywords(text, wrap_limit, keywords)
         total_lines = len(lines)
+        # lines = [text[i:i+wrap_limit] for i in range(0, len(text), wrap_limit)]
+        # total_lines = len(lines)
 
         if direction == "垂直":
             for line_idx, line in enumerate(lines):
-                offset_x = (total_lines - 1 - line_idx) * font_size
+                offset_x = -line_idx * font_size
+                # offset_x = (total_lines - 1 - line_idx) * font_size
+                # offset_x = line_idx * font_size  # ✅ 每一行往右移
                 for char_idx, char in enumerate(line):
                     canvas.drawString(
                         x + offset_x, 
@@ -51,6 +59,84 @@ class PDFExporter:
         else:
             # fallback: 不處理換行
             canvas.drawString(x, y, text)
+    def split_text_by_keywords(self,text: str, wrap_limit: int, keywords: list[str]) -> list[str]:
+        segments = []
+
+        # 🔸 用正則先處理每一種關鍵詞邏輯
+        remaining = text
+
+        # 🔶 金紙：先處理一次性關鍵詞（金紙）
+        for keyword in keywords:
+            if keyword == "金紙":
+                match = re.search(f"(.*?){keyword}(.*)", remaining)
+                if match:
+                    before = match.group(1)
+                    after = keyword + match.group(2)
+                    if before.strip():
+                        segments.append(before)
+                    segments.append(after)
+                    remaining = ""
+                    break  # ✅ 金紙只處理一次，結束
+        if remaining:
+            segments.append(remaining)
+
+        # 🔶 再處理可多次出現的（營業所、店）
+        new_segments = []
+        for seg in segments:
+            # 對每個 segment 再拆：處理多次關鍵詞分割（保留關鍵詞）
+            parts = [seg]
+            for kw in ["營業所", "店"]:
+                temp = []
+                for part in parts:
+                    # 保留關鍵詞在句尾：使用 lookahead
+                    sub_parts = re.split(f"(?<={kw})", part)
+                    temp.extend([s for s in sub_parts if s])  # 去除空段
+                parts = temp
+            new_segments.extend(parts)
+
+        # 🔶 wrap_limit 分段
+        lines = []
+        for seg in new_segments:
+            seg = seg.strip()
+            for i in range(0, len(seg), wrap_limit):
+                lines.append(seg[i:i+wrap_limit])
+
+        return lines
+
+        # for keyword in keywords:
+        #     pattern = re.escape(keyword)
+
+        #     if keyword == "金紙":
+        #         # 🔸 金紙 -> 前面一段 + 金紙開頭的後段
+        #         match = re.search(f"(.*?){pattern}.*", remaining)
+        #         if match:
+        #             prefix = match.group(1)
+        #             suffix = remaining[len(prefix):]
+        #             if prefix:
+        #                 segments.append(prefix)
+        #             segments.append(suffix)
+        #             remaining = ""  # 處理完後結束
+        #             break
+
+        #     else:
+        #         # 🔸 營業所 / 店 -> 在關鍵詞**尾巴**切開
+        #         match = re.search(f"(.*?{pattern})(.*)", remaining)
+        #         if match:
+        #             first = match.group(1)
+        #             second = match.group(2)
+        #             segments.append(first)
+        #             remaining = second
+
+        # if remaining:
+        #     segments.append(remaining)
+
+        # # 🔸 第二層斷行：每一段再根據 wrap_limit 拆成小段
+        # lines = []
+        # for seg in segments:
+        #     for i in range(0, len(seg), wrap_limit):
+        #         lines.append(seg[i:i+wrap_limit])
+
+        # return lines
 
     def export(self, output_path):
         if not self.pdf_path or not self.labels:

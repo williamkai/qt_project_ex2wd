@@ -312,8 +312,8 @@ def add_label_param_row(window):
     row1.addWidget(combo_id)
 
     combo_font = QComboBox()
-    combo_font.addItems([str(i) for i in range(16, 81, 2)])
-    combo_font.setCurrentText("20")
+    combo_font.addItems([str(i) for i in range(4, 81, 2)])
+    combo_font.setCurrentText("14")
     combo_font.setFixedWidth(60)
     row1.addWidget(QLabel("字體大小："))
     row1.addWidget(combo_font)
