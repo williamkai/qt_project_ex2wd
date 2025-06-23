@@ -3,7 +3,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QComboBox, QHBoxLayout, QVBoxLayout,
     QFileDialog, QSizePolicy, QFrame, QSplitter, QLineEdit, QMessageBox,QScrollArea
-,QSpinBox,QGroupBox,QRadioButton,QButtonGroup)
+,QSpinBox,QGroupBox,QRadioButton,QButtonGroup,QDoubleSpinBox)
 from PyQt6.QtCore import Qt
 
 
@@ -68,6 +68,35 @@ def build_top_toolbar(window):
     window.btn_remove_label.setFixedWidth(90)
     window.btn_remove_label.clicked.connect(window.remove_selected_label)
     label_layout.addWidget(window.btn_remove_label)
+
+    # === 新增：對齊按鈕 ===
+    window.btn_align_x = QPushButton("垂直對齊")
+    window.btn_align_x.setFixedWidth(90)
+    window.btn_align_x.clicked.connect(window.align_selected_labels_horizontally)
+    label_layout.addWidget(window.btn_align_x)
+
+    window.btn_align_y = QPushButton("水平對齊")
+    window.btn_align_y.setFixedWidth(90)
+    window.btn_align_y.clicked.connect(window.align_selected_labels_vertically)
+    label_layout.addWidget(window.btn_align_y)
+
+    # === 新增：X / Y 座標手動設定 ===
+    label_layout.addWidget(QLabel("X:"))
+    window.spin_label_x = QDoubleSpinBox()
+    window.spin_label_x.setRange(-9999, 9999)
+    window.spin_label_x.setDecimals(1)
+    window.spin_label_x.setFixedWidth(70)
+    window.spin_label_x.valueChanged.connect(window.update_selected_label_position)
+    label_layout.addWidget(window.spin_label_x)
+
+    label_layout.addWidget(QLabel("Y:"))
+    window.spin_label_y = QDoubleSpinBox()
+    window.spin_label_y.setRange(-9999, 9999)
+    window.spin_label_y.setDecimals(1)
+    window.spin_label_y.setFixedWidth(70)
+    window.spin_label_y.valueChanged.connect(window.update_selected_label_position)
+    label_layout.addWidget(window.spin_label_y)
+
 
     label_layout.addStretch()
     label_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -371,7 +400,7 @@ def build_excel_param_settings(window):
     window.count_group = QWidget()
     count_layout = QHBoxLayout(window.count_group)
     window.combo_row_limit = QComboBox()
-    window.combo_row_limit.addItems(["200", "400", "600", "800", "1000", "2000", "4000", "全部"])
+    window.combo_row_limit.addItems(["20", "40", "100", "200", "400", "600", "800", "1000", "2000", "4000", "全部"])
     window.combo_row_limit.setCurrentIndex(0)
     count_layout.addWidget(QLabel("處理筆數："))
     count_layout.addWidget(window.combo_row_limit)

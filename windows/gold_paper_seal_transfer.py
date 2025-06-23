@@ -73,6 +73,9 @@ class GoldPaperSealTransferWindow(QWidget):
                         )
 
         self.label_manager = LabelManager(self.scene)
+        # 在你的 MainWindow 初始化時
+        self.scene.selectionChanged.connect(self.update_label_spinbox_position)
+
 
     def setup_ui(self):
 
@@ -188,18 +191,43 @@ class GoldPaperSealTransferWindow(QWidget):
         self.label_manager.remove_selected_label()
    
     def compute_label_offset(self, index, h_count, v_count, image_width, image_height):
-        """讓 index=0 的標籤就在原位，其他往左下擴展"""
-        block_width = image_width / h_count
-        block_height = image_height / v_count
-
-        local_index = index % (h_count * v_count)
-        col = local_index % h_count   # 左到右（0～h_count-1）
-        row = local_index // h_count  # 上到下
-
-        offset_x = -block_width * col  # 注意：向左偏移
-        offset_y = block_height * row  # 向下偏移
-
+        offset_x, offset_y = self.label_manager.compute_label_offset(index, h_count, v_count, image_width, image_height)
         return offset_x, offset_y
+
+    def align_selected_labels_vertically(self):
+        selected_items = self.scene.selectedItems()
+        if len(selected_items) < 2:
+            return
+        base_y = selected_items[0].pos().y()
+        for item in selected_items:
+            item.setPos(item.pos().x(), base_y)
+
+    def align_selected_labels_horizontally(self):
+        selected_items = self.scene.selectedItems()
+        if len(selected_items) < 2:
+            return
+        base_x = selected_items[0].pos().x()
+        for item in selected_items:
+            item.setPos(base_x, item.pos().y())
+
+
+    def update_label_spinbox_position(self):
+        selected_items = self.scene.selectedItems()
+        if len(selected_items) == 1:
+            pos = selected_items[0].pos()
+            self.spin_label_x.blockSignals(True)
+            self.spin_label_y.blockSignals(True)
+            self.spin_label_x.setValue(pos.x())
+            self.spin_label_y.setValue(pos.y())
+            self.spin_label_x.blockSignals(False)
+            self.spin_label_y.blockSignals(False)
+
+    def update_selected_label_position(self):
+        selected_items = self.scene.selectedItems()
+        if len(selected_items) == 1:
+            x = self.spin_label_x.value()
+            y = self.spin_label_y.value()
+            selected_items[0].setPos(x, y)
 
     def export_pdf(self):
         if not self.pdf_viewer.pdf_path or not self.label_manager.labels:
@@ -291,10 +319,10 @@ class GoldPaperSealTransferWindow(QWidget):
                 limit_text = self.combo_row_limit.currentText()
                 if limit_text == "全部":
                     # 「全部」但跳過第 0 列（標題）
-                    df_filtered = df.iloc[1:]
+                    df_filtered = df.iloc[:]
                 else:
                     limit = int(limit_text)
-                    df_filtered = df.iloc[1:1+limit]
+                    df_filtered = df.iloc[:limit]
             else:
                 start = self.spin_row_start.value() # index 從 0 開始
                 end = self.spin_row_end.value()
@@ -303,7 +331,7 @@ class GoldPaperSealTransferWindow(QWidget):
                     return [], f"自訂範圍不合法：從 {start} 到 {end}，但資料總筆數為 {len(df)}"
 
 
-                df_filtered = df.iloc[start:end+1]
+                df_filtered = df.iloc[start-1:end]
 
             # 建立欄位字母（A,B,C...）對應實際欄位名稱的字典
             # 這樣能確保對應準確且不受欄位順序影響
@@ -312,17 +340,20 @@ class GoldPaperSealTransferWindow(QWidget):
             for _, row in df_filtered.iterrows():
                 result = {k: str(row[v]) for k, v in col_letter_map.items()}
                 result_list.append(result)
+            
+            return result_list, ""
+
 
                 
-            return [
-            {"A": "地藏王", "B": "劉德華測試換行用"},
-            {"A": "觀音佛", "B": "張學友"},
-            {"A": "普賢菩薩", "B": "郭富城"},
-            {"A": "文殊菩薩", "B": "黎明"},
-            {"A": "釋迦如來", "B": "周星馳"},
-            {"A": "藥師佛", "B": "吳宗憲"},
-            {"A": "阿彌陀佛", "B": "黃子佼"},
-            ], ""
+            # return [
+            # {"A": "地藏王", "B": "劉德華測試換行用"},
+            # {"A": "觀音佛", "B": "張學友"},
+            # {"A": "普賢菩薩", "B": "郭富城"},
+            # {"A": "文殊菩薩", "B": "黎明"},
+            # {"A": "釋迦如來", "B": "周星馳"},
+            # {"A": "藥師佛", "B": "吳宗憲"},
+            # {"A": "阿彌陀佛", "B": "黃子佼"},
+            # ], ""
 
         except Exception as e:
             return [], f"讀取 Excel 發生錯誤：{e}"
