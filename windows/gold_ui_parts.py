@@ -3,142 +3,191 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QComboBox, QHBoxLayout, QVBoxLayout,
     QFileDialog, QSizePolicy, QFrame, QSplitter, QLineEdit, QMessageBox,QScrollArea
-,QSpinBox,QGroupBox,QRadioButton,QButtonGroup,QDoubleSpinBox)
+,QSpinBox,QGroupBox,QRadioButton,QButtonGroup,QDoubleSpinBox,QProgressBar)
 from PyQt6.QtCore import Qt
 
 
 def build_top_toolbar(window):
-    """
-    建立視窗上方的工具列區域，包含：
-    - PDF / Excel 選擇
-    - 標籤設定與加入
-    - 縮放設定
-    - 匯出按鈕
-    """
+    from PyQt6.QtWidgets import (
+        QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton,
+        QLabel, QComboBox, QDoubleSpinBox, QProgressBar, QSizePolicy
+    )
+    from PyQt6.QtCore import Qt
+
     top_layout = QHBoxLayout()
-    top_layout.setSpacing(10)
+    top_layout.setSpacing(15)
 
-    # ==== PDF 選擇 ====
-    pdf_widget = QWidget()
-    pdf_layout = QHBoxLayout(pdf_widget)
-    pdf_layout.setContentsMargins(0, 0, 0, 0)
+    # ==== PDF / Excel 選擇 ====
+    pdf_excel_group = QGroupBox("PDF / Excel 選擇")
+    pdf_excel_group.setFixedWidth(250)
+    outer_pdf = QVBoxLayout()
+    inner_pdf = QVBoxLayout()
+    inner_pdf.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+    inner_pdf.setSpacing(8)
+
     window.btn_select_pdf = QPushButton("選擇 PDF")
-    window.btn_select_pdf.setFixedWidth(100)
+    window.btn_select_pdf.setFixedWidth(120)
     window.btn_select_pdf.clicked.connect(window.select_pdf_file)
-    pdf_layout.addWidget(window.btn_select_pdf)
-    pdf_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-    top_layout.addWidget(pdf_widget)
+    inner_pdf.addWidget(window.btn_select_pdf)
 
-    # ==== Excel 選擇 ====
-    exl_widget = QWidget()
-    exl_layout = QHBoxLayout(exl_widget)
-    exl_layout.setContentsMargins(0, 0, 0, 0)
     window.btn_select_exl = QPushButton("選擇 Excel")
-    window.btn_select_exl.setFixedWidth(100)
+    window.btn_select_exl.setFixedWidth(120)
     window.btn_select_exl.clicked.connect(window.select_excel_file)
-    exl_layout.addWidget(window.btn_select_exl)
-    exl_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-    top_layout.addWidget(exl_widget)
+    inner_pdf.addWidget(window.btn_select_exl)
 
-    # ==== 標籤管理 ====
-    label_widget = QWidget()
-    label_layout = QHBoxLayout(label_widget)
-    label_layout.setContentsMargins(0, 0, 0, 0)
-    label_layout.setSpacing(10)
+    outer_pdf.addStretch()
+    outer_pdf.addLayout(inner_pdf)
+    outer_pdf.addStretch()
+    pdf_excel_group.setLayout(outer_pdf)
+    top_layout.addWidget(pdf_excel_group)
 
-    label_layout.addWidget(QLabel("標籤名稱："))
+    # ==== 標籤處理 ====
+    label_group = QGroupBox("標籤處理")
+    label_group.setFixedWidth(480)
+    outer_label = QVBoxLayout()
+    inner_label = QHBoxLayout()
+    inner_label.setSpacing(15)
+    inner_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
+    # group1: 標籤名稱 + 加入/移除
+    group1 = QVBoxLayout()
+    row1 = QHBoxLayout()
+    lbl_name = QLabel("標籤名稱：")
+    lbl_name.setFixedWidth(70)
+    row1.addWidget(lbl_name)
     window.combo_label_id = QComboBox()
     window.combo_label_id.addItems([chr(i) for i in range(ord('A'), ord('Z') + 1)])
-    window.combo_label_id.setFixedWidth(50)
-    label_layout.addWidget(window.combo_label_id)
-
+    window.combo_label_id.setFixedWidth(60)
+    row1.addWidget(window.combo_label_id)
     window.combo_label_size = QComboBox()
     window.combo_label_size.addItems([str(i) for i in range(16, 81, 2)])
     window.combo_label_size.setCurrentIndex(4)
-    window.combo_label_size.setFixedWidth(50)
-    label_layout.addWidget(window.combo_label_size)
+    window.combo_label_size.setFixedWidth(60)
+    row1.addWidget(window.combo_label_size)
+    group1.addLayout(row1)
 
+    row2 = QHBoxLayout()
     window.btn_add_label = QPushButton("加入標籤")
     window.btn_add_label.setFixedWidth(90)
     window.btn_add_label.clicked.connect(window.add_text_label)
-    label_layout.addWidget(window.btn_add_label)
-
+    row2.addWidget(window.btn_add_label)
     window.btn_remove_label = QPushButton("移除標籤")
     window.btn_remove_label.setFixedWidth(90)
     window.btn_remove_label.clicked.connect(window.remove_selected_label)
-    label_layout.addWidget(window.btn_remove_label)
+    row2.addWidget(window.btn_remove_label)
+    group1.addLayout(row2)
 
-    # === 新增：對齊按鈕 ===
+    # group2: 對齊
+    group2 = QVBoxLayout()
+    row3 = QHBoxLayout()
     window.btn_align_x = QPushButton("垂直對齊")
     window.btn_align_x.setFixedWidth(90)
     window.btn_align_x.clicked.connect(window.align_selected_labels_horizontally)
-    label_layout.addWidget(window.btn_align_x)
-
+    row3.addWidget(window.btn_align_x)
+    group2.addLayout(row3)
+    row4 = QHBoxLayout()
     window.btn_align_y = QPushButton("水平對齊")
     window.btn_align_y.setFixedWidth(90)
     window.btn_align_y.clicked.connect(window.align_selected_labels_vertically)
-    label_layout.addWidget(window.btn_align_y)
+    row4.addWidget(window.btn_align_y)
+    group2.addLayout(row4)
 
-    # === 新增：X / Y 座標手動設定 ===
-    label_layout.addWidget(QLabel("X:"))
+    # group3: X / Y
+    group3 = QVBoxLayout()
+    row5 = QHBoxLayout()
+    lbl_x = QLabel("X:")
+    lbl_x.setFixedWidth(20)
+    row5.addWidget(lbl_x)
     window.spin_label_x = QDoubleSpinBox()
     window.spin_label_x.setRange(-9999, 9999)
     window.spin_label_x.setDecimals(1)
-    window.spin_label_x.setFixedWidth(70)
+    window.spin_label_x.setFixedWidth(80)
     window.spin_label_x.valueChanged.connect(window.update_selected_label_position)
-    label_layout.addWidget(window.spin_label_x)
+    row5.addWidget(window.spin_label_x)
+    group3.addLayout(row5)
 
-    label_layout.addWidget(QLabel("Y:"))
+    row6 = QHBoxLayout()
+    lbl_y = QLabel("Y:")
+    lbl_y.setFixedWidth(20)
+    row6.addWidget(lbl_y)
     window.spin_label_y = QDoubleSpinBox()
     window.spin_label_y.setRange(-9999, 9999)
     window.spin_label_y.setDecimals(1)
-    window.spin_label_y.setFixedWidth(70)
+    window.spin_label_y.setFixedWidth(80)
     window.spin_label_y.valueChanged.connect(window.update_selected_label_position)
-    label_layout.addWidget(window.spin_label_y)
+    row6.addWidget(window.spin_label_y)
+    group3.addLayout(row6)
 
+    # 加進 label 主 layout
+    inner_label.addLayout(group1)
+    inner_label.addLayout(group2)
+    inner_label.addLayout(group3)
+    outer_label.addStretch()
+    outer_label.addLayout(inner_label)
+    outer_label.addStretch()
+    label_group.setLayout(outer_label)
+    top_layout.addWidget(label_group)
 
-    label_layout.addStretch()
-    label_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-    top_layout.addWidget(label_widget)
+    # ==== 縮放與設定 ====
+    zoom_group = QGroupBox("縮放與設定")
+    zoom_group.setFixedWidth(200)
+    outer_zoom = QVBoxLayout()
+    inner_zoom = QVBoxLayout()
+    inner_zoom.setSpacing(8)
+    inner_zoom.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-    # ==== 縮放與設定切換 ====
-    control_widget = QWidget()
-    control_layout = QHBoxLayout(control_widget)
-    control_layout.setContentsMargins(0, 0, 0, 0)
-    control_layout.setSpacing(5)
-
-    control_layout.addWidget(QLabel("縮放比例："))
+    row_zoom = QHBoxLayout()
+    lbl_zoom = QLabel("縮放比例：")
+    lbl_zoom.setFixedWidth(60)
+    row_zoom.addWidget(lbl_zoom)
     window.zoom_combo = QComboBox()
     window.zoom_combo.addItems(["1.0x", "1.25x", "1.5x", "2.0x"])
     window.zoom_combo.setCurrentIndex(1)
-    window.zoom_combo.currentIndexChanged.connect(window.change_zoom)
     window.zoom_combo.setFixedWidth(80)
-    control_layout.addWidget(window.zoom_combo)
+    window.zoom_combo.currentIndexChanged.connect(window.change_zoom)
+    row_zoom.addWidget(window.zoom_combo)
+    inner_zoom.addLayout(row_zoom)
 
     window.btn_toggle_settings = QPushButton("隱藏設定區")
     window.btn_toggle_settings.setCheckable(True)
     window.btn_toggle_settings.setChecked(True)
     window.btn_toggle_settings.setFixedWidth(120)
     window.btn_toggle_settings.clicked.connect(window.toggle_left_settings)
-    control_layout.addWidget(window.btn_toggle_settings)
-    control_layout.addStretch()
-    control_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-    top_layout.addWidget(control_widget)
+    inner_zoom.addWidget(window.btn_toggle_settings, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-    # ==== 產生 PDF 按鈕 ====
-    export_widget = QWidget()
-    export_layout = QHBoxLayout(export_widget)
-    export_layout.setContentsMargins(0, 0, 0, 0)
+
+    outer_zoom.addStretch()
+    outer_zoom.addLayout(inner_zoom)
+    outer_zoom.addStretch()
+    zoom_group.setLayout(outer_zoom)
+    top_layout.addWidget(zoom_group)
+
+    # ==== 匯出與進度條 ====
+    export_group = QGroupBox("轉換與進度")
+    export_group.setFixedWidth(180)
+    outer_export = QVBoxLayout()
+    inner_export = QVBoxLayout()
+    inner_export.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+    inner_export.setSpacing(8)
+
     window.btn_export = QPushButton("執行轉換")
     window.btn_export.setFixedWidth(150)
     window.btn_export.clicked.connect(window.export_pdf)
-    export_layout.addWidget(window.btn_export)
-    export_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-    top_layout.addWidget(export_widget)
+    inner_export.addWidget(window.btn_export)
+
+    window.progress_bar = QProgressBar()
+    window.progress_bar.setFixedWidth(150)
+    window.progress_bar.setValue(0)
+    window.progress_bar.setVisible(True)
+    inner_export.addWidget(window.progress_bar)
+
+    outer_export.addStretch()
+    outer_export.addLayout(inner_export)
+    outer_export.addStretch()
+    export_group.setLayout(outer_export)
+    top_layout.addWidget(export_group)
 
     return top_layout
-
 
 def build_horizontal_separator():
     """回傳一條水平分隔線（QFrame）"""
@@ -173,15 +222,11 @@ def build_left_settings(window):
     scroll_layout.addWidget(build_excel_param_settings(window))
 
     # === 加入 保存 參數設定區塊 ===
-    scroll_layout.addWidget(build_save_settings(window))
+    # scroll_layout.addWidget(build_save_settings(window))
 
 
     # ✅ 加入標籤參數設定區塊
     scroll_layout.addWidget(build_label_param_settings(window))
-
-    # 🧩 未來可以加：標籤參數區塊、資料參數設定、保存設定等等
-    # scroll_layout.addWidget(build_label_param_settings(window))
-    # scroll_layout.addWidget(build_data_param_settings(window))
 
     scroll_layout.addStretch()
     scroll_content.setLayout(scroll_layout)
@@ -371,6 +416,7 @@ def build_excel_param_settings(window):
 
     # 處理方式選擇（一般處理 vs 句選金紙封條）
     process_mode_group = QGroupBox("處理邏輯")
+    process_mode_group.setFixedWidth(280)
     process_layout = QHBoxLayout(process_mode_group)
     window.combo_process_mode = QComboBox()
     window.combo_process_mode.addItems(["一般處理", "金紙封條"])
@@ -381,6 +427,7 @@ def build_excel_param_settings(window):
 
     # --- 資料筆數選擇模式：兩種方式二選一 ---
     mode_group = QGroupBox("筆數選擇模式")
+    mode_group.setFixedWidth(280)
     mode_layout = QVBoxLayout(mode_group)
 
     radio_layout = QHBoxLayout()

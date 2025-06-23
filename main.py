@@ -14,7 +14,7 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("地藏王廟小工具")
-        self.setMinimumSize(400, 300)
+        self.setFixedSize(400, 300)  # ← 這裡改成固定大小
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -26,9 +26,9 @@ class MainWindow(QWidget):
         buttons = [
             ("試算表轉召請文", self.open_excel_to_invitation_window),
             ("試算表轉拔薦文疏-本", self.open_invitation_transfer_window),
-            ("試算表轉金紙封條", self.open_gold_paper_seal_transfer_window),
-            ("試算表轉收據", self.open_receipt_transfer_window),
-            ("其他轉換功能", self.open_other_transfer_window),
+            ("Excel 轉 PDF", self.open_gold_paper_seal_transfer_window),
+            # ("試算表轉收據", self.open_receipt_transfer_window),
+            # ("其他轉換功能", self.open_other_transfer_window),
         ]
 
         for text, slot in buttons:

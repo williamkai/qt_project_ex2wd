@@ -6,7 +6,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from pypdf import PdfReader, PdfWriter, PageObject
 from PyQt6.QtCore import QPointF
-
+from PyQt6.QtWidgets import QMessageBox
 class PDFExporter:
     def __init__(self, pdf_path, labels, image_width, image_height,
                  h_count, v_count, font_path, data, compute_offset_func,
@@ -30,19 +30,15 @@ class PDFExporter:
         # ✅ 先設定字型
         canvas.setFont(self.font_name, font_size)
         # 🔸 自訂關鍵詞（可放在類別屬性 or 傳入參數）
-        keywords = ["金紙", "營業所", "店"]
+        keywords = ["金紙", "營業所", "店", "公司"]
 
         # 🔸 斷行處理：先關鍵詞，再字數
         lines = self.split_text_by_keywords(text, wrap_limit, keywords)
         total_lines = len(lines)
-        # lines = [text[i:i+wrap_limit] for i in range(0, len(text), wrap_limit)]
-        # total_lines = len(lines)
 
         if direction == "垂直":
             for line_idx, line in enumerate(lines):
                 offset_x = -line_idx * font_size
-                # offset_x = (total_lines - 1 - line_idx) * font_size
-                # offset_x = line_idx * font_size  # ✅ 每一行往右移
                 for char_idx, char in enumerate(line):
                     canvas.drawString(
                         x + offset_x, 
@@ -85,7 +81,7 @@ class PDFExporter:
         for seg in segments:
             # 對每個 segment 再拆：處理多次關鍵詞分割（保留關鍵詞）
             parts = [seg]
-            for kw in ["營業所", "店"]:
+            for kw in ["營業所", "店", "公司"]:
                 temp = []
                 for part in parts:
                     # 保留關鍵詞在句尾：使用 lookahead
@@ -103,42 +99,7 @@ class PDFExporter:
 
         return lines
 
-        # for keyword in keywords:
-        #     pattern = re.escape(keyword)
-
-        #     if keyword == "金紙":
-        #         # 🔸 金紙 -> 前面一段 + 金紙開頭的後段
-        #         match = re.search(f"(.*?){pattern}.*", remaining)
-        #         if match:
-        #             prefix = match.group(1)
-        #             suffix = remaining[len(prefix):]
-        #             if prefix:
-        #                 segments.append(prefix)
-        #             segments.append(suffix)
-        #             remaining = ""  # 處理完後結束
-        #             break
-
-        #     else:
-        #         # 🔸 營業所 / 店 -> 在關鍵詞**尾巴**切開
-        #         match = re.search(f"(.*?{pattern})(.*)", remaining)
-        #         if match:
-        #             first = match.group(1)
-        #             second = match.group(2)
-        #             segments.append(first)
-        #             remaining = second
-
-        # if remaining:
-        #     segments.append(remaining)
-
-        # # 🔸 第二層斷行：每一段再根據 wrap_limit 拆成小段
-        # lines = []
-        # for seg in segments:
-        #     for i in range(0, len(seg), wrap_limit):
-        #         lines.append(seg[i:i+wrap_limit])
-
-        # return lines
-
-    def export(self, output_path):
+    def export(self, output_path, progress_callback=None):
         if not self.pdf_path or not self.labels:
             print("⚠️ 沒有載入 PDF 或沒有標籤")
             return
@@ -192,7 +153,9 @@ class PDFExporter:
                         direction = params.get("direction", "水平")  # 預設垂直
                         wrap_limit = params.get("wrap_limit", 10)
                         self.draw_text(c, label_text, x_pdf, y_pdf, font_size, direction, wrap_limit)
-
+            # ✅ 每頁完成後更新進度
+            if progress_callback:
+                progress_callback(int((page_num + 1) / total_pages * 100))
             print(f"[Debug] 寫入 canvas，label 數量: {len(label_map)}")
 
             c.save()
@@ -207,6 +170,14 @@ class PDFExporter:
             new_page.merge_page(overlay_pdf.pages[0])
             writer.add_page(new_page)
 
-        with open(output_path, "wb") as f:
-            writer.write(f)
-        print(f"✅ 成功寫入 PDF：{output_path}")
+        try:
+            with open(output_path, "wb") as f:
+                writer.write(f)
+            print(f"\n✅ 轉換完成，輸出檔案：{output_path}")
+            return True, output_path  # ✅ 成功回傳
+        except Exception as e:
+            print(f"❌ 儲存失敗：{e}")
+            return False, str(e)  # ❌ 錯誤訊息回傳
+        
+
+

@@ -27,6 +27,9 @@ from modules.label_manager import LabelManager
 from core.conversion_utils import (
     read_data_auto,)
 from core.pdf_exporter import PDFExporter
+from core.kai_thread_pool import ExportWorker
+from PyQt6.QtCore import  QThreadPool
+
 # 註冊中文字型
 # 動態取得字體檔案的路徑（以目前這個檔案為基準）
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,16 +39,15 @@ font_path = os.path.join(current_dir, "..", "core", "Iansui-Regular.ttf")
 font_path = os.path.normpath(font_path)
 pdfmetrics.registerFont(TTFont("Iansui", font_path))
 
-# font_path = get_project_path("core", "Iansui-Regular.ttf")
 
 
 class GoldPaperSealTransferWindow(QWidget):
-    def __init__(self, title="試算表轉金紙封條"):
+    def __init__(self, title="Excel 轉 PDF 可視化工具"):
         super().__init__()
         self.setWindowTitle(title)
         self.is_closing = False
-        self.setWindowTitle("PDF 可視化標籤定位工具")
-        self.setMinimumSize(1500, 700)
+        self.setWindowTitle("Excel 轉 PDF 可視化工具")
+        self.setMinimumSize(1200, 500)
 
         # PDF 狀態與圖像資訊
         self.pdf_path = None
@@ -121,8 +123,8 @@ class GoldPaperSealTransferWindow(QWidget):
 
             self.reset_scene()
             self.pdf_viewer.pdf_path = path  # pdf_viewer 需要知道路徑
-            self.btn_select_pdf.setText(f"pdf: {os.path.basename(path)[:14]}")
-            self.btn_select_pdf.setMaximumWidth(200)
+            self.btn_select_pdf.setText(f"pdf: {os.path.basename(path)[:18]}")
+            self.btn_select_pdf.setMaximumWidth(280)
 
             success = self.pdf_viewer.load_pdf_preview(path)
             if not success:
@@ -143,8 +145,8 @@ class GoldPaperSealTransferWindow(QWidget):
         if path:
             self.excel_path = path
             filename = os.path.basename(path)
-            self.btn_select_exl.setText(f"Excel: {filename[:14]}")  # 限制文字長度
-            self.btn_select_exl.setMaximumWidth(200)
+            self.btn_select_exl.setText(f"Excel: {filename[:18]}")  # 限制文字長度
+            self.btn_select_exl.setMaximumWidth(280)
 
     def load_pdf_preview(self):
         if not self.pdf_path:
@@ -236,15 +238,21 @@ class GoldPaperSealTransferWindow(QWidget):
         if not self.pdf_viewer.pdf_path or not self.label_manager.labels:
             QMessageBox.warning(self, "警告", "⚠️ 沒有載入 PDF 或沒有標籤")
             return
-        
+
         if not self.excel_path:
             QMessageBox.warning(self, "警告", "⚠️ 請選擇 Excel 檔案。")
             return
 
-        data_list,error_msg = self.get_excel_data()
+        self.setEnabled(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.btn_export.setText("處理試算表中...")
 
-        if  error_msg:
+        data_list, error_msg = self.get_excel_data()
+        if error_msg:
             QMessageBox.warning(self, "警告", f"⚠️ Excel 資料錯誤：{error_msg}")
+            self.setEnabled(True)
+            QApplication.restoreOverrideCursor()
+            self.btn_export.setText("執行轉換")
             return
 
         label_map = defaultdict(list)
@@ -262,32 +270,54 @@ class GoldPaperSealTransferWindow(QWidget):
                 "資料缺失警告",
                 f"資料中找不到標籤欄位：{', '.join(missing_labels)}，請檢查 Excel 資料或標籤設定。"
             )
+            self.setEnabled(True)
+            QApplication.restoreOverrideCursor()
+            self.btn_export.setText("執行轉換")
             return
 
-        self.btn_export.setEnabled(False)
-        self.btn_export.setText("載入中...")
         label_param_settings = self.collect_label_param_settings()
-        try:
-            exporter = PDFExporter(
-                pdf_path=self.pdf_viewer.pdf_path,
-                labels=self.label_manager.labels,
-                image_width=self.pdf_viewer.image_width,
-                image_height=self.pdf_viewer.image_height,
-                h_count=int(self.combo_h_split.currentText()),
-                v_count=int(self.combo_v_split.currentText()),
-                font_path=font_path,
-                data=data_list,
-                compute_offset_func=self.compute_label_offset,
-                label_param_settings=label_param_settings,
-            )
+        exporter = PDFExporter(
+            pdf_path=self.pdf_viewer.pdf_path,
+            labels=self.label_manager.labels,
+            image_width=self.pdf_viewer.image_width,
+            image_height=self.pdf_viewer.image_height,
+            h_count=int(self.combo_h_split.currentText()),
+            v_count=int(self.combo_v_split.currentText()),
+            font_path=font_path,
+            data=data_list,
+            compute_offset_func=self.compute_label_offset,
+            label_param_settings=label_param_settings,
+        )
 
-            output_path, _ = QFileDialog.getSaveFileName(self, "儲存 PDF", "output.pdf", "PDF Files (*.pdf)")
-            if output_path:
-                exporter.export(output_path)
-
-        finally:
-            self.btn_export.setEnabled(True)
+        output_path, _ = QFileDialog.getSaveFileName(self, "儲存 PDF", "output.pdf", "PDF Files (*.pdf)")
+        if not output_path:
+            self.setEnabled(True)
+            QApplication.restoreOverrideCursor()
             self.btn_export.setText("執行轉換")
+            return
+
+        self.btn_export.setText("轉換pdf中...")
+        self.progress_bar.setValue(0)
+
+        # ✅ 建立 ExportWorker，掛上 progress 與 finished 事件
+        self.worker = ExportWorker(exporter, output_path)
+        self.worker.signals.progress.connect(self.progress_bar.setValue)
+        self.worker.signals.finished.connect(self.export_done)
+
+        # ✅ 把 worker 丟給 thread pool 執行
+        QThreadPool.globalInstance().start(self.worker)
+
+    def export_done(self, success, result):
+        QApplication.restoreOverrideCursor()
+        self.setEnabled(True)
+        self.btn_export.setEnabled(True)
+        self.btn_export.setText("執行轉換")
+
+        if success:
+            QMessageBox.information(self, "轉換完成", f"✅ PDF 成功產生！\n\n儲存位置：\n{result}")
+        else:
+            QMessageBox.critical(self, "轉換失敗", f"❌ PDF 儲存時發生錯誤：\n{result}")
+
  
     def collect_label_param_settings(self) -> dict:
         """
@@ -309,6 +339,9 @@ class GoldPaperSealTransferWindow(QWidget):
     
     def get_excel_data(self):
         try:
+            self.progress_bar.setValue(0)
+            self.btn_export.setEnabled(False)
+            self.btn_export.setText("處理試算表中...")
             # 自訂函式讀取 Excel，並將 NaN 用空字串代替
             df = read_data_auto(self.excel_path)
             df = df.fillna('')
@@ -344,28 +377,11 @@ class GoldPaperSealTransferWindow(QWidget):
                 result = {k: str(row[v]) for k, v in col_letter_map.items()}
                 result_list.append(result)
 
-            print(f"✅ 讀取 Excel 資料完成，總筆數：{len(result_list)}\n開始行：{start},結束行：{end}")
 
-            print("\n".join(str(row) for row in result_list[:5]))
             # 如果是金紙封條模式，就展開處理
             if process_mode == "金紙封條":
-                result_list = self.expand_goldpaper_records(result_list)
-                print(f"金紙封條處理完成，總筆數：{len(result_list)}\n")
-                print("\n".join(str(row) for row in result_list[:5]))
-
+                result_list = self.expand_goldpaper_records(result_list,progress_callback=self.progress_bar.setValue)
             return result_list, ""
-
-
-                
-            # return [
-            # {"A": "地藏王", "B": "劉德華測試換行用"},
-            # {"A": "觀音佛", "B": "張學友"},
-            # {"A": "普賢菩薩", "B": "郭富城"},
-            # {"A": "文殊菩薩", "B": "黎明"},
-            # {"A": "釋迦如來", "B": "周星馳"},
-            # {"A": "藥師佛", "B": "吳宗憲"},
-            # {"A": "阿彌陀佛", "B": "黃子佼"},
-            # ], ""
 
         except Exception as e:
             return [], f"讀取 Excel 發生錯誤：{e}"
@@ -373,20 +389,20 @@ class GoldPaperSealTransferWindow(QWidget):
         finally:
             print("讀取 Excel 檔案完成")
 
-    def expand_goldpaper_records(self, data_list):
-        """
-        拆分含金紙N份或地基主資料為 N 筆，每筆為 1份或1項，統一寫到欄位 F，其餘 G~K 清空。
-        """
+
+    def expand_goldpaper_records(self, data_list, progress_callback=None):
         expanded = []
-        gold_keys = list("FGHIJK")  # 欄位順序
-        for row in data_list:
+        gold_keys = list("FGHIJK")
+        total = len(data_list)
+
+        for idx, row in enumerate(data_list):
             b_val = row["B"]
-            base_row = {k: row[k] for k in row if k not in gold_keys}  # 保留 A~E 等欄位
+            base_row = {k: row[k] for k in row if k not in gold_keys}
             count = 0
             for key in gold_keys:
                 content = row.get(key, "").strip()
                 if not content:
-                    break  # 後續欄位若空，代表結束
+                    break
                 if "金紙" in content:
                     try:
                         n = int(content.split("金紙")[1].split("份")[0].strip())
@@ -400,50 +416,15 @@ class GoldPaperSealTransferWindow(QWidget):
                         expanded.append(new_row)
                     count += n
                 else:
-                    # 無金紙，直接移到 F 欄位
                     new_row = base_row.copy()
                     new_row["B"] = b_val if count == 0 else f"{b_val}-{count + 1}"
                     new_row.update({k: "" for k in gold_keys})
                     new_row["F"] = content
                     expanded.append(new_row)
                     count += 1
+
+            # 💡 更新進度
+            if progress_callback:
+                progress_callback(int((idx + 1) / total * 100))
+
         return expanded
-        # """
-        # 拆分含金紙N份的資料為 N 筆，每筆為 1份，B欄後綴 -2, -3... 表示編號
-        # """
-        # expanded = []
-        # gold_keys = list("FGHIJK")  # 欄位順序
-        # for row in data_list:
-        #     b_val = row["B"]
-        #     base_row = {k: row[k] for k in row if k not in gold_keys}  # 除了 FGHIJK 以外的欄位
-
-        #     count = 0
-        #     for key in gold_keys:
-        #         content = row.get(key, "").strip()
-        #         if not content:
-        #             break  # 若遇到空欄位，視為後面也都沒資料
-        #         if "金紙" in content:
-        #             # 嘗試解析「金紙6份」
-        #             try:
-        #                 n = int(content.split("金紙")[1].split("份")[0].strip())
-        #             except:
-        #                 n = 1  # 若解析失敗，預設1份
-        #             for i in range(n):
-        #                 new_row = base_row.copy()
-        #                 new_row["B"] = b_val if i == 0 and count == 0 else f"{b_val}-{count + i + 1}"
-        #                 # 將該金紙欄位設為「金紙1份」，其他設空
-        #                 new_row.update({k: "" for k in gold_keys})
-        #                 new_row[key] = content.replace(f"金紙{n}份", "金紙1份")
-        #                 expanded.append(new_row)
-        #             count += n
-        #         else:
-        #             # 沒有金紙，視為一般內容，直接加入
-        #             new_row = base_row.copy()
-        #             new_row["B"] = b_val if count == 0 else f"{b_val}-{count + 1}"
-        #             new_row.update({k: "" for k in gold_keys})
-        #             new_row[key] = content
-        #             expanded.append(new_row)
-        #             count += 1
-        # return expanded
-
-        
