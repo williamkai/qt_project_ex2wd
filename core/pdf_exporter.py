@@ -57,7 +57,13 @@ class PDFExporter:
             canvas.drawString(x, y, text)
     def split_text_by_keywords(self,text: str, wrap_limit: int, keywords: list[str]) -> list[str]:
         segments = []
-
+        # 🔧 先做文字替換（特殊關鍵詞處理）
+        if "氏九玄七祖" in text:
+            text = text.replace("氏九玄七祖", "氏 九玄七祖")
+        remove_words = ["其他"]  # 你想刪掉的詞放這裡
+        for w in remove_words:
+            if w in text:
+                text = text.replace(w, "")
         # 🔸 用正則先處理每一種關鍵詞邏輯
         remaining = text
 

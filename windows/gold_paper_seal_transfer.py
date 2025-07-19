@@ -423,16 +423,17 @@ class GoldPaperSealTransferWindow(QWidget):
                         n = int(content.split("金紙")[1].split("份")[0].strip())
                     except:
                         n = 1
+                    n=n+1
                     for i in range(n):
                         new_row = base_row.copy()
-                        new_row["B"] = b_val if i == 0 and count == 0 else f"{b_val}-{count + i + 1}"
+                        new_row["B"] = b_val if i == 0 and count == 0 else f"{b_val}-{count + i }"
                         new_row.update({k: "" for k in gold_keys})
-                        new_row["F"] = content.replace(f"金紙{n}份", "金紙1份")
+                        new_row["F"] = content.replace(f"金紙{n-1}份", "金紙1份")
                         expanded.append(new_row)
                     count += n
                 else:
                     new_row = base_row.copy()
-                    new_row["B"] = b_val if count == 0 else f"{b_val}-{count + 1}"
+                    new_row["B"] = b_val if count == 0 else f"{b_val}-{count}"
                     new_row.update({k: "" for k in gold_keys})
                     new_row["F"] = content
                     expanded.append(new_row)

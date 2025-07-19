@@ -37,7 +37,7 @@ class LabelManager:
         col = local_index % h_count
         row = local_index // h_count
 
-        offset_x = -block_width * col
+        offset_x = block_width * col
         offset_y = block_height * row
 
         return offset_x, offset_y

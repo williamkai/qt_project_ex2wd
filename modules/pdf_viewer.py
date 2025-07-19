@@ -133,7 +133,8 @@ class PDFViewer:
         # 顯示順序編號（右上角為 1，橫向從右到左，縱向由上到下）
         index = 1
         for row in range(v_count):  # 垂直（上到下）
-            for col in reversed(range(h_count)):  # 水平（右到左）
+            for col in range(h_count):
+            # for col in reversed(range(h_count)):  # 水平（右到左）
                 block_x = width / h_count * col + width / h_count / 2
                 block_y = height / v_count * row + height / v_count / 2
                 text_item = QGraphicsSimpleTextItem(str(index))
